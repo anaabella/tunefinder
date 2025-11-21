@@ -15,7 +15,7 @@ import type { Song } from "@/lib/types";
 import { getPlaylistSongs } from "@/lib/actions";
 import { YouTubeIcon } from "@/components/icons";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, ListMusic } from "lucide-react";
+import { Search, ListMusic, Trash2 } from "lucide-react";
 
 const formSchema = z.object({
   playlistUrl: z.string().url({ message: "Please enter a valid URL." })
@@ -60,6 +60,14 @@ export default function Home() {
       });
     }
   }
+
+  const handleDeleteSong = (songId: string) => {
+    setSongs((prevSongs) => prevSongs.filter((song) => song.id !== songId));
+    toast({
+      title: "Song removed",
+      description: "The song has been removed from your list.",
+    });
+  };
 
   const filteredSongs = playlistLoaded ? songs.filter(song =>
     song.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -149,12 +157,16 @@ export default function Home() {
                         <CardTitle className="truncate">{song.title}</CardTitle>
                         <CardDescription>{song.artist}</CardDescription>
                       </CardHeader>
-                      <CardFooter>
+                      <CardFooter className="flex gap-2">
                         <Button asChild variant="outline" className="w-full">
                           <Link href={song.url} target="_blank" rel="noopener noreferrer">
                             <YouTubeIcon className="h-4 w-4 mr-2" />
-                            Watch on YouTube
+                            Watch
                           </Link>
+                        </Button>
+                        <Button variant="destructive" className="w-full" onClick={() => handleDeleteSong(song.id)}>
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
                         </Button>
                       </CardFooter>
                     </Card>
