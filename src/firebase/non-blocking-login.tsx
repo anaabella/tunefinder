@@ -9,10 +9,17 @@ import {
 /** Initiate Google sign-in (non-blocking). */
 export function initiateGoogleSignIn(authInstance: Auth): Promise<UserCredential> {
   const provider = new GoogleAuthProvider();
-  // Solicitamos acceso a las playlists del usuario de YouTube
+  // Solicitamos acceso a las playlists del usuario de YouTube de forma explícita.
+  // Esto es crucial para que el usuario pueda dar su consentimiento.
   provider.addScope('https://www.googleapis.com/auth/youtube.readonly');
   
-  // Use a try-catch block for better error handling if the popup is closed
+  // Usar prompt: 'consent' puede ser útil durante el desarrollo para forzar
+  // que la pantalla de consentimiento aparezca siempre y verificar los permisos.
+  // En producción, esto se puede quitar para una mejor experiencia de usuario.
+  provider.setCustomParameters({
+    prompt: 'consent'
+  });
+
   return signInWithPopup(authInstance, provider).then(result => {
     // This is a good place to store the access token if needed globally
     const credential = GoogleAuthProvider.credentialFromResult(result);
