@@ -9,7 +9,7 @@ import Image from 'next/image';
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import type { Song } from "@/lib/types";
 import { Search, Music, Trash2 } from "lucide-react";
@@ -40,7 +40,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
   const [songs, setSongs] = useState<Song[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [submittedQuery, setSubmittedQuery] = useState('');
-  const [isDeleting, startDeleteTransition] = useTransition();
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useUser();
 
@@ -89,31 +89,39 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
   }
 
   const handleDeleteSong = async (songIdToDelete: string) => {
+    setIsDeleting(songIdToDelete);
     if (!accessToken) {
       toast({
         variant: "destructive",
         title: "Error de autenticación",
         description: "Se perdió la sesión. Por favor, inicia sesión de nuevo.",
       });
-      return;
+      setIsDeleting(null);
+      return false;
     }
     
-    const success = await deletePlaylistItem(accessToken, songIdToDelete);
+    try {
+      const success = await deletePlaylistItem(accessToken, songIdToDelete);
 
-    if (success) {
-      toast({
-        title: "Canción eliminada",
-        description: "La canción ha sido eliminada de tu playlist de YouTube.",
-      });
-      startDeleteTransition(() => {
+      if (success) {
+        toast({
+          title: "Canción eliminada",
+          description: "La canción ha sido eliminada de tu playlist de YouTube.",
+        });
         setSongs((prevSongs) => prevSongs.filter((song) => song.id !== songIdToDelete));
-      });
-    } else {
+        setIsDeleting(null);
+        return true;
+      } else {
+        throw new Error("No se pudo eliminar la canción. Revisa los permisos o inténtalo de nuevo.");
+      }
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error al eliminar",
-        description: "No se pudo eliminar la canción. Revisa los permisos o inténtalo de nuevo.",
+        description: error.message || "No se pudo eliminar la canción. Revisa los permisos o inténtalo de nuevo.",
       });
+      setIsDeleting(null);
+      return false;
     }
   };
 
@@ -170,11 +178,11 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
         <div className="space-y-4">
           <h3 className="text-2xl font-bold font-headline">Resultados <span className="text-base font-normal text-muted-foreground">({songs.length} encontrados para "{submittedQuery}")</span></h3>
           {songs.length > 0 ? (
-             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+             <div className="flex flex-col gap-3">
              {songs.map((song) => (
-                <Card key={song.id} className="flex flex-col overflow-hidden">
+                <div key={song.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card text-card-foreground">
                     {song.thumbnailUrl && (
-                        <div className="aspect-video relative">
+                        <div className="aspect-video relative h-16 w-28 rounded-md overflow-hidden flex-shrink-0">
                             <Image 
                                 src={song.thumbnailUrl} 
                                 alt={`Miniatura de ${song.title}`} 
@@ -183,19 +191,20 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
                             />
                         </div>
                     )}
-                  <CardHeader className="flex-grow">
-                    <CardTitle className="truncate text-lg">{song.title}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{song.artist}</p>
-                   </CardHeader>
-                   <CardContent className="flex-grow">
-                     <p className="text-xs text-muted-foreground">Encontrado en: <span className="font-semibold">{song.playlistName}</span></p>
-                   </CardContent>
-                  <CardFooter>
+                  <div className="flex-grow min-w-0">
+                    <p className="truncate font-semibold">{song.title}</p>
+                    <p className="text-sm text-muted-foreground truncate">{song.artist}</p>
+                    <p className="text-xs text-muted-foreground">En: <span className="font-medium">{song.playlistName}</span></p>
+                   </div>
+                  <div className="flex-shrink-0">
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="destructive" className="w-full" disabled={isDeleting}>
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Eliminar
+                        <Button variant="ghost" size="icon" disabled={isDeleting === song.id} aria-label="Eliminar canción">
+                          {isDeleting === song.id ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-destructive"></div>
+                          ) : (
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          )}
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
@@ -207,14 +216,17 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDeleteSong(song.id)}>
+                          <AlertDialogAction onClick={async (e) => {
+                            e.preventDefault();
+                            await handleDeleteSong(song.id);
+                          }}>
                             Sí, eliminar
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
-                  </CardFooter>
-                </Card>
+                  </div>
+                </div>
               ))}
             </div>
           ) : (

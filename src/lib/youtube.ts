@@ -97,14 +97,16 @@ const getPlaylistItemsFlow = ai.defineFlow(
 
     const songs = allItems.map((item) => {
       const title = item.snippet?.title || 'Título Desconocido';
+      // Prioritize the video owner channel title for artist, often more accurate for music.
       const videoOwner =
         item.snippet?.videoOwnerChannelTitle?.replace(' - Topic', '') ||
         'Artista Desconocido';
 
       return {
+        // We use item.id for the playlist item ID, needed for deletion.
         id: item.id || '',
         playlistId: playlistId,
-        playlistName: '',
+        playlistName: '', // Will be filled in the search flow
         title: title,
         artist: videoOwner,
         youtubeVideoId: item.snippet?.resourceId?.videoId || '',
@@ -138,6 +140,7 @@ const searchAllPlaylistsFlow = ai.defineFlow(
     const playlists = await getPlaylistsFlow(accessToken);
 
     const allSongsPromises = playlists.map(async (playlist) => {
+      if (!playlist.id) return [];
       const songs = await getPlaylistItemsFlow({
         accessToken,
         playlistId: playlist.id,
@@ -158,6 +161,9 @@ const searchAllPlaylistsFlow = ai.defineFlow(
       song.title.toLowerCase().includes(lowerCaseQuery) || 
       (song.artist && song.artist.toLowerCase().includes(lowerCaseQuery))
     );
+    
+    // Sort results by playlist name
+    filteredSongs.sort((a, b) => a.playlistName.localeCompare(b.playlistName));
 
     return filteredSongs;
   }
@@ -192,9 +198,9 @@ const deletePlaylistItemFlow = ai.defineFlow(
         return true;
       } catch (error) {
         console.error('Error deleting playlist item:', error);
-        // It might be useful to throw the error or return a more detailed error object
-        // For now, we return false to indicate failure.
-        return false;
+        // Throw the error so it can be caught by the calling function
+        // and displayed to the user.
+        throw error;
       }
     }
   );

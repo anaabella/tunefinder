@@ -13,9 +13,9 @@ export function initiateGoogleSignIn(authInstance: Auth): Promise<UserCredential
   // Solicitamos acceso completo a YouTube para poder leer y eliminar canciones de playlists.
   provider.addScope('https://www.googleapis.com/auth/youtube');
   
-  // Usar prompt: 'consent' puede ser útil durante el desarrollo para forzar
-  // que la pantalla de consentimiento aparezca siempre y verificar los permisos.
-  // En producción, esto se puede quitar para una mejor experiencia de usuario.
+  // Usar prompt: 'consent' fuerza que la pantalla de consentimiento aparezca siempre.
+  // Esto es crucial para asegurar que el usuario aprueba los nuevos permisos (como el de escritura).
+  // Una vez que la app está estable, se puede quitar para mejorar la experiencia.
   provider.setCustomParameters({
     prompt: 'consent'
   });
