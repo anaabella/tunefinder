@@ -1,69 +1,58 @@
+
 {
   "entities": {
-    "Playlist": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Playlist",
+    "UserProfile": {
+      "title": "User Profile",
       "type": "object",
-      "description": "Represents a YouTube playlist.",
+      "description": "Stores user-specific application settings and profile information.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the Playlist entity."
+          "description": "The user's unique ID, matching their Firebase Auth UID."
         },
-        "url": {
+        "displayName": {
           "type": "string",
-          "description": "URL of the YouTube playlist.",
-          "format": "uri"
+          "description": "The user's public display name."
         },
-        "name": {
+        "email": {
           "type": "string",
-          "description": "Name of the playlist."
-        },
-        "description": {
-          "type": "string",
-          "description": "Description of the playlist."
+          "format": "email",
+          "description": "The user's email address."
         }
       },
-      "required": [
-        "id",
-        "url",
-        "name"
-      ]
+      "required": ["id", "displayName", "email"]
     },
     "Song": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Song",
       "type": "object",
-      "description": "Represents a song within a YouTube playlist.",
+      "description": "Represents a single song within a user's collection, denormalized for efficient global searching.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the Song entity."
+          "description": "Unique identifier for the song document."
         },
         "playlistId": {
           "type": "string",
-          "description": "Reference to Playlist. (Relationship: Playlist 1:N Song)"
+          "description": "The ID of the playlist this song belongs to."
+        },
+        "playlistName": {
+          "type": "string",
+          "description": "The name of the playlist this song belongs to."
         },
         "title": {
           "type": "string",
-          "description": "Title of the song."
+          "description": "The title of the song."
         },
         "artist": {
           "type": "string",
-          "description": "Artist of the song."
+          "description": "The artist of the song."
         },
         "youtubeVideoId": {
           "type": "string",
-          "description": "YouTube video ID for the song."
+          "description": "The YouTube video ID for the song."
         }
       },
-      "required": [
-        "id",
-        "playlistId",
-        "title",
-        "artist",
-        "youtubeVideoId"
-      ]
+      "required": ["id", "playlistId", "playlistName", "title", "artist", "youtubeVideoId"]
     }
   },
   "auth": {
@@ -74,50 +63,39 @@
   "firestore": {
     "structure": [
       {
-        "path": "/users/{userId}/playlists/{playlistId}",
+        "path": "/users/{userId}",
         "definition": {
-          "entityName": "Playlist",
+          "entityName": "UserProfile",
           "schema": {
-            "$ref": "#/backend/entities/Playlist"
+            "$ref": "#/backend/entities/UserProfile"
           },
-          "description": "Stores playlists created by users. Uses path-based ownership, granting access only to the user identified by {userId}.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The ID of the user who owns the playlist."
-            },
-            {
-              "name": "playlistId",
-              "description": "The ID of the playlist."
-            }
-          ]
+          "description": "Stores public profile information for each user.",
+          "params": [{
+            "name": "userId",
+            "description": "The unique ID of the user."
+          }]
         }
       },
       {
-        "path": "/users/{userId}/playlists/{playlistId}/songs/{songId}",
+        "path": "/users/{userId}/songs/{songId}",
         "definition": {
           "entityName": "Song",
           "schema": {
             "$ref": "#/backend/entities/Song"
           },
-          "description": "Stores songs within a user's playlist. Uses path-based ownership, inheriting permissions from the parent playlist and user. Access is restricted to the user identified by {userId} who owns the parent playlist.",
+          "description": "A collection of all songs for a user, denormalized for efficient searching across all their playlists. This structure supports a global song search without needing complex, inefficient queries across multiple playlist subcollections.",
           "params": [
             {
               "name": "userId",
-              "description": "The ID of the user who owns the playlist."
-            },
-            {
-              "name": "playlistId",
-              "description": "The ID of the playlist."
+              "description": "The ID of the user who owns the song."
             },
             {
               "name": "songId",
-              "description": "The ID of the song."
+              "description": "The unique ID for the song document."
             }
           ]
         }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to enable efficient song search within YouTube playlists for the TuneFinder application. The core strategy is to organize data hierarchically under user-specific playlists, providing clear ownership and simplifying security rules. Authorization independence is achieved by denormalizing any access-related data that a child document relies upon, to avoid costly `get()` calls and allow for atomic writes. Specifically, there is no authorization data to denormalize since path-based ownership is leveraged.\n\nThe structure supports required QAPs by segregating playlist and song data into collections under user documents. This prevents mixed security postures and allows for efficient `list` operations. The hierarchical structure `/users/{userId}/playlists/{playlistId}/songs/{songId}` ensures that only the owner (`userId`) can manage playlists and songs. This inherently secures `list` operations, preventing unauthorized access to playlist content.\n\nThere is an alternative approach:\n\nAlternatively, if the application allows multiple users to access and contribute to the same playlist, a membership map on the playlist documents would be required in combination with path-based ownership. In this case, each `song` document would need to denormalize the `members` map from its parent `playlist` document. The `dataStructureRecommendation` and `firestorePaths` would need to change to reflect this access model."
+    ]
   }
 }

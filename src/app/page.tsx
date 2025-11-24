@@ -1,9 +1,9 @@
+
 "use client";
 
 import { useUser, useAuth } from "@/firebase";
 import { initiateGoogleSignIn } from "@/firebase/non-blocking-login";
 import { Button } from "@/components/ui/button";
-import { LogIn } from "lucide-react";
 import { SearchSongs } from "@/components/SearchSongs";
 import { YouTubeIcon } from "@/components/icons";
 
@@ -13,7 +13,7 @@ function Login() {
     <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
       <h2 className="text-2xl font-bold">Bienvenido a TuneFinder</h2>
       <p className="text-muted-foreground">
-        Inicia sesión para buscar en tus listas de reproducción.
+        Inicia sesión con Google para buscar en tus listas de reproducción.
       </p>
       <Button onClick={() => initiateGoogleSignIn(auth)}>
         <YouTubeIcon className="mr-2 h-4 w-4" /> Iniciar Sesión con Google
@@ -37,7 +37,7 @@ export default function Home() {
 
   return (
     <div className="container mx-auto py-8 md:py-12 px-4 h-full">
-      {!user ? <div className="text-center"><h2 className="text-2xl font-bold">Por favor, inicia sesión para continuar.</h2></div> : <SearchSongs />}
+      {!user ? <Login /> : <SearchSongs />}
     </div>
   );
 }

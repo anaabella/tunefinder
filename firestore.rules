@@ -1,123 +1,18 @@
-/**
- * Core Philosophy: This ruleset enforces a strict user-ownership model. All data, including playlists and their associated songs, is stored within a private data tree for each user, ensuring that only the authenticated owner of that data can access or modify it.
- *
- * Data Structure: The data is organized hierarchically under the `/users/{userId}` path. This path-based ownership is the primary mechanism for authorization, making rules simple, efficient, and secure. The structure is: `/users/{userId}/playlists/{playlistId}/songs/{songId}`.
- *
- * Key Security Decisions:
- * - Strict Ownership: All data is private. There are no public or shared collections. A user can only access documents where the `{userId}` in the path matches their own authentication UID.
- * - No User Listing: Direct listing or reading of documents in the top-level `/users` collection is explicitly denied to prevent enumeration of all application users.
- * - Path-Based Security: Authorization relies entirely on matching the `{userId}` wildcard in the path to the requester's UID. This avoids costly `get()` calls to other documents for permission checks.
- *
- * Denormalization for Authorization: The current model uses path-based ownership, which is highly efficient and does not require denormalizing ownership fields onto documents for authorization checks. However, relational integrity is maintained by ensuring that on creation, document fields like `id` and `playlistId` match the corresponding wildcards in the document path. These fields are then enforced as immutable on update.
- *
- * Structural Segregation: The design naturally segregates each user's data into its own document tree, preventing any possibility of data leakage between users and simplifying list operations.
- */
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --------------------------------
-    // Helper Functions
-    // --------------------------------
-
-    /**
-     * Verifies that the user is authenticated.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Verifies that the currently authenticated user is the owner of the document,
-     * based on the userId provided from the path.
-     * @param userId The user ID from the path wildcard.
-     */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-
-    /**
-     * Verifies ownership for an existing document. Used for update and delete
-     * operations to prevent acting on non-existent data.
-     * @param userId The user ID from the path wildcard.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    /**
-     * Validates that the playlist document being created has an `id` field
-     * that matches the document's ID in the path.
-     */
-    function hasValidPlaylistDataOnCreate(playlistId) {
-      return request.resource.data.id == playlistId;
-    }
-
-    /**
-     * Ensures the core relational identifier (`id`) of a playlist cannot be changed after creation.
-     * This check allows for partial updates while protecting relational integrity.
-     */
-    function isPlaylistDataImmutable() {
-      return request.resource.data.id == resource.data.id;
-    }
-
-    /**
-     * Validates that the song document being created has `id` and `playlistId`
-     * fields that match the document's path.
-     */
-    function hasValidSongDataOnCreate(playlistId, songId) {
-      let data = request.resource.data;
-      return data.id == songId && data.playlistId == playlistId;
-    }
-
-    /**
-     * Ensures the core relational identifiers (`id`, `playlistId`) of a song cannot be changed.
-     * This check allows for partial updates while protecting relational integrity.
-     */
-    function isSongDataImmutable() {
-      let incomingData = request.resource.data;
-      let existingData = resource.data;
-      return incomingData.id == existingData.id && incomingData.playlistId == existingData.playlistId;
-    }
-
-    // --------------------------------
-    // User Data Tree
-    // --------------------------------
-
-    match /users/{userId} {
-      // Deny direct access to the user document itself.
-      // Data is only accessible through defined subcollections.
-      allow read, write: if false;
-
-      /**
-       * @description Controls access to a user's playlists. Only the owner can manage their own playlists.
-       * @path /users/{userId}/playlists/{playlistId}
-       * @allow A user (auth.uid='user123') reads or writes their own playlist at `/users/user123/playlists/abc`.
-       * @deny A different user (auth.uid='user456') tries to access a playlist at `/users/user123/playlists/abc`.
-       * @principle Restricts access to a user's own data tree using path-based ownership.
-       */
-      match /playlists/{playlistId} {
-        allow get: if isOwner(userId);
-        allow list: if isOwner(userId);
-        allow create: if isOwner(userId) && hasValidPlaylistDataOnCreate(playlistId);
-        allow update: if isExistingOwner(userId) && isPlaylistDataImmutable();
-        allow delete: if isExistingOwner(userId);
-
-        /**
-         * @description Controls access to songs within a user's playlist. Access is inherited from the parent user path.
-         * @path /users/{userId}/playlists/{playlistId}/songs/{songId}
-         * @allow A user (auth.uid='user123') creates a song at `/users/user123/playlists/abc/songs/xyz`.
-         * @deny A different user (auth.uid='user456') tries to delete a song at `/users/user123/playlists/abc/songs/xyz`.
-         * @principle Enforces inherited ownership from the user's data tree and validates relational integrity on writes.
-         */
-        match /songs/{songId} {
-          allow get: if isOwner(userId);
-          allow list: if isOwner(userId);
-          allow create: if isOwner(userId) && hasValidSongDataOnCreate(playlistId, songId);
-          allow update: if isExistingOwner(userId) && isSongDataImmutable();
-          allow delete: if isExistingOwner(userId);
-        }
-      }
+    
+    match /users/{userId}/{document=**} {
+      allow read, write: if isOwner(userId);
     }
   }
 }
