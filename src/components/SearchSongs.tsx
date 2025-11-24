@@ -23,7 +23,7 @@ const formSchema = z.object({
 });
 
 interface SearchSongsProps {
-  accessToken: string;
+  accessToken: string | null;
 }
 
 export function SearchSongs({ accessToken }: SearchSongsProps) {
