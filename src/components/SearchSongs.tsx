@@ -17,8 +17,7 @@ import { YouTubeIcon } from "@/components/icons";
 import { Search, Music } from "lucide-react";
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
-import { addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
-import { getYoutubePlaylists } from "@/ai/flows/get-youtube-playlists";
+
 
 const formSchema = z.object({
   songName: z.string().min(2, { message: "Please enter at least 2 characters." }),
@@ -29,38 +28,15 @@ export function SearchSongs() {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
-  const [playlists, setPlaylists] = useState<any[]>([]);
-  const [isLoadingPlaylists, setIsLoadingPlaylists] = useState(true);
-
-  useEffect(() => {
-    async function fetchPlaylists() {
-      if (user) {
-        setIsLoadingPlaylists(true);
-        try {
-          const fetchedPlaylists = await getYoutubePlaylists();
-          setPlaylists(fetchedPlaylists);
-          toast({
-            title: "Playlists cargadas",
-            description: "Hemos cargado tus playlists de YouTube.",
-          });
-        } catch (error) {
-          console.error("Error fetching playlists: ", error);
-          toast({
-            variant: "destructive",
-            title: "Error al cargar playlists",
-            description: "No se pudieron cargar tus playlists de YouTube. Asegúrate de haber concedido los permisos necesarios.",
-          });
-        } finally {
-          setIsLoadingPlaylists(false);
-        }
-      }
-    }
-    fetchPlaylists();
-  }, [user, toast]);
 
   const songsQuery = useMemoFirebase(() => {
     if (!user || !firestore || !submittedQuery) return null;
     const songsCollectionRef = collection(firestore, `users/${user.uid}/songs`);
+    // This query is intentionally simple for demonstration.
+    // For a real-world application, you might want to use a more advanced
+    // search solution like Algolia or Elasticsearch, as Firestore's
+    // native querying capabilities for text search are limited.
+    // This query finds songs where the title starts with the submitted query.
     return query(
       songsCollectionRef,
       where('title', '>=', submittedQuery),
@@ -123,13 +99,6 @@ export function SearchSongs() {
           </Form>
         </CardContent>
       </Card>
-      
-      {isLoadingPlaylists && (
-        <div className="flex justify-center items-center p-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <p className="ml-4 text-muted-foreground">Cargando tus playlists...</p>
-        </div>
-      )}
 
       {submittedQuery && isLoading && (
         <div className="flex justify-center items-center p-8">
