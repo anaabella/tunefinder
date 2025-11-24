@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import {
   AlertDialog,
@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { deletePlaylistItem } from '@/lib/youtube';
+import { deletePlaylistItem, movePlaylistItem } from '@/lib/youtube';
 import type { Song } from '@/lib/types';
 import { Trash2, Music4, Search, ArrowRightLeft } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -30,6 +30,7 @@ interface SongResultsProps {
   isSearching?: boolean;
   searchQuery?: string;
   initialSearch?: boolean;
+  hasSearched: boolean;
 }
 
 const SongSkeleton = () => (
@@ -55,6 +56,7 @@ export function SongResults({
   isSearching,
   searchQuery,
   initialSearch,
+  hasSearched,
 }: SongResultsProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -73,7 +75,7 @@ export function SongResults({
   );
   
   // Reset page when search query changes
-  useState(() => {
+  useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery]);
 
@@ -102,41 +104,35 @@ export function SongResults({
     }
 
     try {
-      const success = await deletePlaylistItem(accessToken, songIdToDelete);
+      await deletePlaylistItem(accessToken, songIdToDelete);
 
-      if (success) {
-        toast({
-          title: 'Canción eliminada',
-          description:
-            'La canción ha sido eliminada de tu playlist de YouTube.',
-        });
+      toast({
+        title: 'Canción eliminada',
+        description:
+          'La canción ha sido eliminada de tu playlist de YouTube.',
+      });
 
-        const songElement = document.getElementById(`song-${songIdToDelete}`);
-        if (songElement) {
-          songElement.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
-          songElement.style.opacity = '0';
-          songElement.style.transform = 'translateX(-100%)';
-          songElement.addEventListener(
-            'transitionend',
-            () => {
-              setSongs((prev) =>
-                prev.filter((song) => song.id !== songIdToDelete)
-              );
-            },
-            { once: true }
-          );
-        } else {
-          setSongs((prev) =>
-            prev.filter((song) => song.id !== songIdToDelete)
-          );
-        }
-
-        return true;
+      const songElement = document.getElementById(`song-${songIdToDelete}`);
+      if (songElement) {
+        songElement.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
+        songElement.style.opacity = '0';
+        songElement.style.transform = 'translateX(-100%)';
+        songElement.addEventListener(
+          'transitionend',
+          () => {
+            setSongs((prev) =>
+              prev.filter((song) => song.id !== songIdToDelete)
+            );
+          },
+          { once: true }
+        );
       } else {
-        throw new Error(
-          'No se pudo eliminar la canción. Revisa los permisos o inténtalo de nuevo.'
+        setSongs((prev) =>
+          prev.filter((song) => song.id !== songIdToDelete)
         );
       }
+
+      return true;
     } catch (error: any) {
       toast({
         variant: 'destructive',
