@@ -164,6 +164,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
         isSearching={isSearching}
         searchQuery={query}
         initialSearch={!hasSearched && !query}
+        hasSearched={hasSearched}
       />
     </div>
   );
