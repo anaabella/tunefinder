@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useTransition } from 'react';
@@ -36,7 +37,7 @@ function RefreshSession() {
 }
 
 export function SearchSongs({ accessToken }: SearchSongsProps) {
-  const [filteredSongs, setFilteredSongs] = useState<Song[]>([]);
+  const [songs, setSongs] = useState<Song[]>([]);
   const [query, setQuery] = useState('');
   const [isTokenExpired, setIsTokenExpired] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -45,7 +46,11 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
   const [isSearching, startSearchTransition] = useTransition();
 
   const handleSearch = useCallback(async (searchQuery: string) => {
-    if (!user || !accessToken) {
+    if (!user || !accessToken) return;
+
+    if (!searchQuery) {
+      setSongs([]);
+      setHasSearched(false);
       return;
     }
 
@@ -56,12 +61,10 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
         const ignoredPlaylistsStr = localStorage.getItem('ignored-playlists') || '[]';
         const ignoredPlaylistIds = JSON.parse(ignoredPlaylistsStr);
         
-        // Call the server-side flow with just the query
         const results = await searchSongs({ accessToken, query: searchQuery, ignoredPlaylistIds });
         
-        setFilteredSongs(results);
+        setSongs(results);
       } catch (error: any) {
-        // Check for specific error message indicating token expiration
         if (error.message === 'YOUTUBE_TOKEN_EXPIRED' || (error.cause as any)?.message === 'YOUTUBE_TOKEN_EXPIRED') {
           setIsTokenExpired(true);
           localStorage.removeItem('yt-access-token');
@@ -81,19 +84,13 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
   useEffect(() => {
     const handler = setTimeout(() => {
       handleSearch(query);
-    }, 300); // 300ms debounce delay
+    }, 500); // Increased debounce delay
 
     return () => {
       clearTimeout(handler);
     };
   }, [query, handleSearch]);
   
-  // Fetch initial songs (all of them) when the component mounts with an empty query
-  useEffect(() => {
-    handleSearch('');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   if (isTokenExpired) return <RefreshSession />;
 
   return (
@@ -124,13 +121,13 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
       </Card>
 
       <SongResults
-        songs={filteredSongs}
-        setSongs={setFilteredSongs}
+        songs={songs}
+        setSongs={setSongs}
         accessToken={accessToken}
         isLoading={isSearching && !hasSearched}
         isSearching={isSearching}
         searchQuery={query}
-        initialSearch={!hasSearched}
+        initialSearch={!hasSearched && !query} // Only show initial message if nothing has been searched and query is empty
       />
     </div>
   );

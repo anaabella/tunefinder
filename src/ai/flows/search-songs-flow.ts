@@ -42,13 +42,14 @@ const searchSongsFlow = ai.defineFlow(
     outputSchema: SearchSongsOutputSchema,
   },
   async ({ accessToken, query, ignoredPlaylistIds }) => {
-    // Step 1: Fetch all songs from all playlists on the server.
-    const allSongs = await getAllSongsFromAllPlaylists(accessToken, ignoredPlaylistIds);
-    
-    // Step 2: If the query is empty, return all songs sorted by date.
+    // Step 1: If the query is empty, return no results.
+    // The heavy lifting is only done when a search is performed.
     if (!query) {
-      return allSongs.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+      return [];
     }
+    
+    // Step 2: Fetch all songs from all playlists on the server.
+    const allSongs = await getAllSongsFromAllPlaylists(accessToken, ignoredPlaylistIds);
     
     const lowerCaseQuery = query.toLowerCase();
 
