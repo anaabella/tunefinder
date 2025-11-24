@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Song } from "@/lib/types";
-import { Search, Music, Trash2 } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getAllSongsFromAllPlaylists, deletePlaylistItem } from "@/lib/youtube";
 import { useUser } from "@/firebase";
@@ -163,7 +163,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
                                 src={song.thumbnailUrl} 
                                 alt={`Miniatura de ${song.title}`} 
                                 fill
-                                objectFit="cover"
+                                style={{ objectFit: 'cover' }}
                             />
                         </div>
                     )}
@@ -195,7 +195,12 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
                           <AlertDialogAction 
                             onClick={async (e) => {
                                 e.preventDefault();
-                                await handleDeleteSong(song.id);
+                                const deleted = await handleDeleteSong(song.id);
+                                // This is a bit of a hack to prevent the dialog from closing if deletion fails
+                                // A better approach would be to control the dialog's open state.
+                                if (!deleted) {
+                                  e.preventDefault();
+                                }
                             }}
                           >
                             Sí, eliminar
