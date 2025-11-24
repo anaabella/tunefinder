@@ -1,10 +1,11 @@
 "use client";
 
 import { useUser, useAuth } from "@/firebase";
-import { initiateAnonymousSignIn } from "@/firebase/non-blocking-login";
+import { initiateGoogleSignIn } from "@/firebase/non-blocking-login";
 import { Button } from "@/components/ui/button";
 import { LogIn } from "lucide-react";
 import { SearchSongs } from "@/components/SearchSongs";
+import { YouTubeIcon } from "@/components/icons";
 
 function Login() {
   const auth = useAuth();
@@ -14,8 +15,8 @@ function Login() {
       <p className="text-muted-foreground">
         Inicia sesión para buscar en tus listas de reproducción.
       </p>
-      <Button onClick={() => initiateAnonymousSignIn(auth)}>
-        <LogIn className="mr-2 h-4 w-4" /> Iniciar Sesión Anónimamente
+      <Button onClick={() => initiateGoogleSignIn(auth)}>
+        <YouTubeIcon className="mr-2 h-4 w-4" /> Iniciar Sesión con Google
       </Button>
     </div>
   )
