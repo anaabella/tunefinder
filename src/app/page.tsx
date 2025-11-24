@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { YouTubeIcon } from '@/components/icons';
 import { useToast } from '@/hooks/use-toast';
 import { SearchSongs } from '@/components/SearchSongs';
-import { setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { setPersistence, browserLocalPersistence, getAdditionalUserInfo, GoogleAuthProvider } from 'firebase/auth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LocalPlaylistSearch } from '@/components/LocalPlaylistSearch';
 
@@ -63,7 +63,8 @@ function RefreshSession() {
 
     const handleLogin = async () => {
       try {
-        await initiateGoogleSignIn(auth);
+        // Re-authenticate with scopes
+        await initiateGoogleSignIn(auth, ['https://www.googleapis.com/auth/youtube.readonly', 'https://www.googleapis.com/auth/youtube']);
         // On successful login, the page will reload automatically due to state change,
         // or we can force it if necessary.
         window.location.reload();
@@ -83,12 +84,12 @@ function RefreshSession() {
   
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-8">
-        <h2 className="text-2xl font-bold">Tu sesión de YouTube ha caducado</h2>
+        <h2 className="text-2xl font-bold">Se requieren permisos de YouTube</h2>
         <p className="text-muted-foreground">
-          Para continuar, por favor haz clic para refrescar tu permiso.
+          Para buscar en tus playlists, TuneFinder necesita acceso a tu cuenta de YouTube.
         </p>
         <Button onClick={handleLogin}>
-          <YouTubeIcon className="mr-2 h-4 w-4" /> Refrescar Sesión con Google
+          <YouTubeIcon className="mr-2 h-4 w-4" /> Conceder permisos de YouTube
         </Button>
       </div>
     );
@@ -110,7 +111,17 @@ export default function Home() {
   // Handle redirect sign-in for mobile
   useEffect(() => {
     if (auth && !user && !isUserLoading) {
-      handleRedirectSignIn(auth).catch(error => {
+      handleRedirectSignIn(auth).then(userCredential => {
+        if(userCredential) {
+            const additionalInfo = getAdditionalUserInfo(userCredential);
+            const credential = GoogleAuthProvider.credentialFromResult(userCredential);
+            const accessToken = credential?.accessToken;
+            if(accessToken) {
+                localStorage.setItem('yt-access-token', accessToken);
+                setAccessToken(accessToken);
+            }
+        }
+      }).catch(error => {
         console.error("Redirect sign-in failed", error);
         toast({
             variant: "destructive",
