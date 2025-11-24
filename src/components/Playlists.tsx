@@ -1,7 +1,6 @@
 
 'use client';
 
-import { useState } from 'react';
 import type { Playlist } from '@/lib/types';
 import {
   Select,
@@ -10,29 +9,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { SearchSongs } from './SearchSongs';
 import { Music2 } from 'lucide-react';
 
 interface PlaylistsProps {
   initialPlaylists: Playlist[];
-  accessToken: string | null;
+  onPlaylistSelected: (playlistId: string | null) => void;
 }
 
-export function Playlists({ initialPlaylists, accessToken }: PlaylistsProps) {
-  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(
-    null
-  );
-
-  const selectedPlaylist = initialPlaylists.find(
-    (p) => p.id === selectedPlaylistId
-  );
-
+export function Playlists({ initialPlaylists, onPlaylistSelected }: PlaylistsProps) {
+  
   if (initialPlaylists.length === 0) {
     return (
       <div className="text-center py-10 border-2 border-dashed rounded-lg">
         <p className="text-muted-foreground">No se encontraron playlists en tu cuenta de YouTube.</p>
         <p className="text-sm text-muted-foreground/80">
-          Asegúrate de que tu cuenta de Google tiene playlists en YouTube o que diste los permisos necesarios.
+          Asegúrate de que tu cuenta de Google tiene playlists, que no están ignoradas o que diste los permisos necesarios.
         </p>
       </div>
     );
@@ -47,7 +38,7 @@ export function Playlists({ initialPlaylists, accessToken }: PlaylistsProps) {
             Elige una de tus playlists de YouTube para empezar a buscar.
             </p>
         </div>
-        <Select onValueChange={setSelectedPlaylistId}>
+        <Select onValueChange={(value) => onPlaylistSelected(value)}>
           <SelectTrigger className="w-full h-12 text-base">
              <div className="flex items-center gap-3">
                 <Music2 className="h-5 w-5 text-muted-foreground" />

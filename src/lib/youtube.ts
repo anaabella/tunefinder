@@ -10,7 +10,12 @@ import type { Playlist, Song } from './types';
 
 const youtube = google.youtube('v3');
 
-const GetPlaylistsInputSchema = z.string().describe('OAuth2 Access Token');
+// Ahora el input incluye una lista opcional de IDs de playlists a ignorar.
+const GetPlaylistsInputSchema = z.object({
+  accessToken: z.string().describe('OAuth2 Access Token'),
+  ignoredPlaylistIds: z.array(z.string()).optional().describe('Lista de IDs de playlists a ignorar.'),
+});
+
 
 const getPlaylistsFlow = ai.defineFlow(
   {
@@ -24,30 +29,45 @@ const getPlaylistsFlow = ai.defineFlow(
       })
     ),
   },
-  async (accessToken) => {
+  async ({ accessToken, ignoredPlaylistIds }) => {
     const oauth2Client = new google.auth.OAuth2();
     oauth2Client.setCredentials({ access_token: accessToken });
 
-    const response = await youtube.playlists.list({
-      part: ['snippet', 'contentDetails'],
-      mine: true,
-      maxResults: 50,
-      auth: oauth2Client,
-    });
+    try {
+      const response = await youtube.playlists.list({
+        part: ['snippet', 'contentDetails'],
+        mine: true,
+        maxResults: 50,
+        auth: oauth2Client,
+      });
 
-    const playlists =
-      response.data.items?.map((item) => ({
-        id: item.id || '',
-        name: item.snippet?.title || 'Sin Título',
-        description: item.snippet?.description || 'Sin Descripción',
-      })) || [];
+      let playlists =
+        response.data.items?.map((item) => ({
+          id: item.id || '',
+          name: item.snippet?.title || 'Sin Título',
+          description: item.snippet?.description || 'Sin Descripción',
+        })) || [];
 
-    return playlists.filter((p): p is Playlist => !!p.id);
+      // Filtra las playlists ignoradas si se proporciona la lista.
+      if (ignoredPlaylistIds && ignoredPlaylistIds.length > 0) {
+        const ignoredSet = new Set(ignoredPlaylistIds);
+        playlists = playlists.filter(p => !ignoredSet.has(p.id));
+      }
+      
+      return playlists.filter((p): p is Playlist => !!p.id);
+
+    } catch (error: any) {
+        // Detecta error de token expirado
+        if (error.code === 401 || (error.response?.data?.error?.message.includes('Invalid Credentials'))) {
+            throw new Error('YOUTUBE_TOKEN_EXPIRED');
+        }
+        throw error;
+    }
   }
 );
 
-export async function getPlaylists(accessToken: string): Promise<Playlist[]> {
-  return await getPlaylistsFlow(accessToken);
+export async function getPlaylists(accessToken: string, ignoredPlaylistIds?: string[]): Promise<Playlist[]> {
+  return await getPlaylistsFlow({ accessToken, ignoredPlaylistIds });
 }
 
 const GetPlaylistItemsInputSchema = z.object({
@@ -79,34 +99,40 @@ const getPlaylistItemsFlow = ai.defineFlow(
     let allItems: any[] = [];
     let nextPageToken: string | undefined | null = undefined;
 
-    do {
-      const response = await youtube.playlistItems.list({
-        part: ['snippet'],
-        playlistId: playlistId,
-        maxResults: 50,
-        pageToken: nextPageToken || undefined,
-        auth: oauth2Client,
-      });
+    try {
+        do {
+          const response = await youtube.playlistItems.list({
+            part: ['snippet'],
+            playlistId: playlistId,
+            maxResults: 50,
+            pageToken: nextPageToken || undefined,
+            auth: oauth2Client,
+          });
 
-      if (response.data.items) {
-        allItems = allItems.concat(response.data.items);
-      }
+          if (response.data.items) {
+            allItems = allItems.concat(response.data.items);
+          }
 
-      nextPageToken = response.data.nextPageToken;
-    } while (nextPageToken);
+          nextPageToken = response.data.nextPageToken;
+        } while (nextPageToken);
+    } catch (error: any) {
+        if (error.code === 401 || (error.response?.data?.error?.message.includes('Invalid Credentials'))) {
+            throw new Error('YOUTUBE_TOKEN_EXPIRED');
+        }
+        throw error;
+    }
+
 
     const songs = allItems.map((item) => {
       const title = item.snippet?.title || 'Título Desconocido';
-      // Prioritize the video owner channel title for artist, often more accurate for music.
       const videoOwner =
         item.snippet?.videoOwnerChannelTitle?.replace(' - Topic', '') ||
         'Artista Desconocido';
 
       return {
-        // We use item.id for the playlist item ID, needed for deletion.
         id: item.id || '',
         playlistId: playlistId,
-        playlistName: '', // Will be filled in the search flow
+        playlistName: '',
         title: title,
         artist: videoOwner,
         youtubeVideoId: item.snippet?.resourceId?.videoId || '',
@@ -120,37 +146,42 @@ const getPlaylistItemsFlow = ai.defineFlow(
 );
 
 
-const GetAllSongsInputSchema = z.string().describe('OAuth2 Access Token');
+const GetAllSongsInputSchema = z.object({
+  accessToken: z.string().describe('OAuth2 Access Token'),
+  playlistId: z.string().describe('The ID of the playlist to fetch songs from.'),
+});
 
-const getAllSongsFromAllPlaylistsFlow = ai.defineFlow(
+
+const getSongsFromPlaylistFlow = ai.defineFlow(
   {
-    name: 'getAllSongsFromAllPlaylistsFlow',
+    name: 'getSongsFromPlaylistFlow',
     inputSchema: GetAllSongsInputSchema,
     outputSchema: z.array(z.custom<Song>()),
   },
-  async (accessToken) => {
+  async ({accessToken, playlistId}) => {
     try {
-        const playlists = await getPlaylistsFlow(accessToken);
-
-        const allSongsPromises = playlists.map(async (playlist) => {
-          if (!playlist.id) return [];
-          const songs = await getPlaylistItemsFlow({
-            accessToken,
-            playlistId: playlist.id,
-          });
-          // Add playlist name to each song
-          return songs.map((song) => ({
-            ...song,
-            playlistName: playlist.name,
-          }));
+        // Primero, obtenemos los detalles de la playlist para tener su nombre.
+        const oauth2Client = new google.auth.OAuth2();
+        oauth2Client.setCredentials({ access_token: accessToken });
+        const playlistResponse = await youtube.playlists.list({
+            part: ['snippet'],
+            id: [playlistId],
+            auth: oauth2Client,
         });
 
-        const allSongsArrays = await Promise.all(allSongsPromises);
-        const allSongs = allSongsArrays.flat();
-        
-        return allSongs;
+        const playlistName = playlistResponse.data.items?.[0]?.snippet?.title || 'Playlist Desconocida';
+
+        const songs = await getPlaylistItemsFlow({
+            accessToken,
+            playlistId: playlistId,
+        });
+
+        // Añadimos el nombre de la playlist a cada canción.
+        return songs.map((song) => ({
+            ...song,
+            playlistName: playlistName,
+        }));
     } catch (error: any) {
-        // Detect expired token error from Google's API response
         if (error.code === 401 || (error.response?.data?.error?.message.includes('Invalid Credentials'))) {
             throw new Error('YOUTUBE_TOKEN_EXPIRED');
         }
@@ -159,8 +190,9 @@ const getAllSongsFromAllPlaylistsFlow = ai.defineFlow(
   }
 );
 
-export async function getAllSongsFromAllPlaylists(accessToken: string): Promise<Song[]> {
-  return await getAllSongsFromAllPlaylistsFlow(accessToken);
+// Nueva función para obtener canciones de UNA playlist
+export async function getSongsFromPlaylist(accessToken: string, playlistId: string): Promise<Song[]> {
+  return await getSongsFromPlaylistFlow({ accessToken, playlistId });
 }
 
 
@@ -188,7 +220,6 @@ const deletePlaylistItemFlow = ai.defineFlow(
         return true;
       } catch (error: any) {
         console.error('Error detallado de la API de YouTube al eliminar:', JSON.stringify(error, null, 2));
-        // Propagate the specific error message from the YouTube API
         const errorMessage = error?.response?.data?.error?.message || error.message || 'Error desconocido de la API.';
         throw new Error(`Error de la API de YouTube: ${errorMessage}`);
       }
