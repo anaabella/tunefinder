@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useUser, useAuth } from '@/firebase';
 import { initiateGoogleSignIn } from '@/firebase/non-blocking-login';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,9 @@ import { YouTubeIcon } from '@/components/icons';
 import { useToast } from '@/hooks/use-toast';
 import { SearchSongs } from '@/components/SearchSongs';
 import { setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { LocalPlaylistSearch } from '@/components/LocalPlaylistSearch';
+
 
 function Login() {
   const auth = useAuth();
@@ -94,7 +97,14 @@ function RefreshSession() {
 
 export default function Home() {
   const { user, isUserLoading } = useUser();
-  const accessToken = typeof window !== 'undefined' ? localStorage.getItem('yt-access-token') : null;
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Client-side effect to get the token from localStorage
+    const token = localStorage.getItem('yt-access-token');
+    setAccessToken(token);
+  }, []);
+
 
   if (isUserLoading) {
     return (
@@ -106,22 +116,28 @@ export default function Home() {
     );
   }
   
-  if (!user) {
-    return (
-       <div className="container mx-auto py-8 md:py-12 px-4 h-full">
-        <Login />
-       </div>
-    );
-  }
-  
-  // User is logged in to Firebase, but we need to check for the YouTube token.
+  // The main page is now a tabbed interface.
+  // The local playlist search is always available, even for logged-out users.
   return (
     <div className="container mx-auto py-8 md:py-12 px-4 h-full">
-      {accessToken ? (
-         <SearchSongs accessToken={accessToken} />
-      ) : (
-        <RefreshSession />
-      )}
+      <Tabs defaultValue="youtube" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
+          <TabsTrigger value="youtube">YouTube</TabsTrigger>
+          <TabsTrigger value="local">Archivo Local</TabsTrigger>
+        </TabsList>
+        <TabsContent value="youtube" className="mt-6">
+          {!user ? (
+            <Login />
+          ) : accessToken ? (
+            <SearchSongs accessToken={accessToken} />
+          ) : (
+            <RefreshSession />
+          )}
+        </TabsContent>
+        <TabsContent value="local" className="mt-6">
+          <LocalPlaylistSearch />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

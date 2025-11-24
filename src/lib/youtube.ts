@@ -148,9 +148,6 @@ const getAllSongsFromAllPlaylistsFlow = ai.defineFlow(
         const allSongsArrays = await Promise.all(allSongsPromises);
         const allSongs = allSongsArrays.flat();
         
-        // Default sort by published date descending (newest first)
-        allSongs.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-
         return allSongs;
     } catch (error: any) {
         // Detect expired token error from Google's API response
