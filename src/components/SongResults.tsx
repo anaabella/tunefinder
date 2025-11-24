@@ -11,7 +11,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -75,8 +74,18 @@ export function SongResults({
     playPreview(song.id, ''); // Triggers the loading state immediately
 
     try {
-        const previewUrl = await getSongPreview({ title: song.title, artist: song.artist });
-        playPreview(song.id, previewUrl);
+        const result = await getSongPreview({ title: song.title, artist: song.artist });
+        if (result.previewUrl) {
+          playPreview(song.id, result.previewUrl);
+        } else {
+          // If there's an error message or no URL, show a toast
+          toast({
+              variant: "destructive",
+              title: "Error de Previsualización",
+              description: result.error || "No se pudo obtener la vista previa de la canción.",
+          });
+          stopPreview(); // Clear loading state
+        }
     } catch (error) {
         console.error("Failed to get song preview:", error);
         toast({
