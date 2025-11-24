@@ -158,23 +158,29 @@ const getAllSongsFromAllPlaylistsFlow = ai.defineFlow(
     inputSchema: GetAllSongsInputSchema,
     outputSchema: z.array(z.custom<Song>()),
   },
-  async ({accessToken, ignoredPlaylistIds}) => {
+  async ({ accessToken, ignoredPlaylistIds }) => {
     try {
       const playlists = await getPlaylistsFlow({ accessToken, ignoredPlaylistIds });
-      let allSongs: Song[] = [];
-
-      for (const playlist of playlists) {
+      
+      // Creamos un array de promesas, una por cada playlist.
+      const songPromises = playlists.map(async (playlist) => {
         const songsFromPlaylist = await getPlaylistItemsFlow({
           accessToken,
           playlistId: playlist.id,
         });
-
-        const songsWithPlaylistName = songsFromPlaylist.map(song => ({
+        // Añadimos el nombre de la playlist a cada canción.
+        return songsFromPlaylist.map(song => ({
           ...song,
           playlistName: playlist.name,
         }));
-        allSongs = allSongs.concat(songsWithPlaylistName);
-      }
+      });
+
+      // Esperamos a que todas las promesas se resuelvan en paralelo.
+      const results = await Promise.all(songPromises);
+
+      // Aplanamos el array de arrays de canciones en un solo array.
+      const allSongs = results.flat();
+
       return allSongs;
 
     } catch (error: any) {
