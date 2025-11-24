@@ -17,10 +17,8 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { deletePlaylistItem } from '@/lib/youtube';
 import type { Song } from '@/lib/types';
-import { Trash2, PlayCircle, Music4, PauseCircle, Loader, Search } from 'lucide-react';
+import { Trash2, Music4, Search } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAudioPreview } from './AudioPreviewController';
-import { getSongPreview } from '@/ai/flows/get-song-preview-flow';
 
 interface SongResultsProps {
   songs: Song[];
@@ -58,45 +56,7 @@ export function SongResults({
   initialSearch,
 }: SongResultsProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const { playPreview, stopPreview, currentPreview } = useAudioPreview();
   const { toast } = useToast();
-
-  const handlePreviewClick = async (song: Song) => {
-    if (currentPreview?.songId === song.id && currentPreview.state === 'playing') {
-      stopPreview();
-      return;
-    }
-
-    if (currentPreview?.state === 'loading' && currentPreview?.songId === song.id) {
-      // It's already loading, do nothing
-      return;
-    }
-
-    playPreview(song.id, ''); // Triggers the loading state immediately
-
-    try {
-        const result = await getSongPreview({ title: song.title, artist: song.artist });
-        if (result.previewUrl) {
-          playPreview(song.id, result.previewUrl);
-        } else {
-          // If there's an error message or no URL, show a toast
-          toast({
-              variant: "destructive",
-              title: "Error de Previsualización",
-              description: result.error || "No se pudo obtener la vista previa de la canción.",
-          });
-          stopPreview(); // Clear loading state
-        }
-    } catch (error) {
-        console.error("Failed to get song preview:", error);
-        toast({
-            variant: "destructive",
-            title: "Error de Previsualización",
-            description: "No se pudo obtener la vista previa de la canción.",
-        });
-        stopPreview(); // Clear loading state on error
-    }
-  };
 
   const handleDeleteSong = async (songIdToDelete: string) => {
     setDeletingId(songIdToDelete);
@@ -233,15 +193,6 @@ export function SongResults({
                     </p>
                 </div>
                 <div className="flex-shrink-0 flex items-center gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => handlePreviewClick(song)} aria-label="Reproducir preview">
-                        {currentPreview?.songId === song.id && currentPreview.state === 'loading' ? (
-                            <Loader className="h-5 w-5 animate-spin text-primary" />
-                        ) : currentPreview?.songId === song.id && currentPreview.state === 'playing' ? (
-                            <PauseCircle className="h-5 w-5 text-primary" />
-                        ) : (
-                            <PlayCircle className="h-5 w-5 text-primary" />
-                        )}
-                    </Button>
                     <AlertDialog>
                     <AlertDialogTrigger asChild>
                         <Button
