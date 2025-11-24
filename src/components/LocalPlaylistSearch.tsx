@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
@@ -12,6 +13,7 @@ import { getAllSongsFromAllPlaylists } from '@/lib/youtube';
 import { useUser } from '@/firebase';
 import { SongResults } from './SongResults';
 import { Input } from './ui/input';
+import SongMatcherWorker from 'worker-loader!../workers/song-matcher.worker';
 
 interface LocalSong {
   title: string;
@@ -106,26 +108,21 @@ export function LocalPlaylistSearch() {
           description: `Se encontraron ${parsedSongs.length} canciones en el archivo. Ahora buscando coincidencias en YouTube...`,
         });
 
-        // Match songs
-        const matches: Song[] = [];
-        const lowerCaseParsed = parsedSongs.map(s => ({
-            title: s.title.toLowerCase(),
-            artist: s.artist.toLowerCase()
-        }));
+        const worker = new SongMatcherWorker();
 
-        allYouTubeSongs.forEach(ytSong => {
-            const ytTitle = ytSong.title.toLowerCase();
-            const ytArtist = ytSong.artist.toLowerCase();
+        worker.onmessage = (e: MessageEvent<Song[]>) => {
+            setMatchedSongs(e.data);
+            toast({
+                title: 'Búsqueda completada',
+                description: `Se encontraron ${e.data.length} coincidencias en tus playlists de YouTube.`,
+            });
+            setIsProcessing(false);
+            worker.terminate();
+        };
 
-            if (lowerCaseParsed.some(localSong => ytTitle.includes(localSong.title) || localSong.title.includes(ytTitle))) {
-                 matches.push(ytSong);
-            }
-        });
-        
-        setMatchedSongs(matches);
-        toast({
-          title: 'Búsqueda completada',
-          description: `Se encontraron ${matches.length} coincidencias en tus playlists de YouTube.`,
+        worker.postMessage({
+            allYouTubeSongs,
+            localSongs: parsedSongs,
         });
 
       } catch (error: any) {
@@ -134,7 +131,6 @@ export function LocalPlaylistSearch() {
           title: 'Error al procesar',
           description: error.message || 'No se pudo analizar el archivo de la playlist.',
         });
-      } finally {
         setIsProcessing(false);
       }
     };

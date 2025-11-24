@@ -43,6 +43,21 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+   webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.module.rules.push({
+        test: /\.worker\.ts$/,
+        loader: 'worker-loader',
+        options: {
+          filename: 'static/chunks/[name].[contenthash].js',
+          publicPath: '/_next/',
+        },
+      });
+    }
+    // This is required for wasm modules to work correctly with webpack 5
+    config.experiments = { ...config.experiments, asyncWebAssembly: true, layers: true, };
+    return config;
+  },
 };
 
 export default nextConfig;
