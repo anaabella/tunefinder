@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useUser, useAuth } from '@/firebase';
 import { initiateGoogleSignIn } from '@/firebase/non-blocking-login';
 import { Button } from '@/components/ui/button';
@@ -12,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogIn, LogOut, User as UserIcon } from 'lucide-react';
+import { LogIn, LogOut, User as UserIcon, Star } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { signOut } from 'firebase/auth';
 
@@ -68,6 +69,13 @@ export function UserAuth() {
             </p>
           </div>
         </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+           <Link href="/pricing">
+            <Star className="mr-2" />
+            <span>Hazte Pro</span>
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => signOut(auth)}>
           <LogOut className="mr-2" />
