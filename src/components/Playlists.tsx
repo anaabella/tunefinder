@@ -15,9 +15,10 @@ import { Music2 } from 'lucide-react';
 
 interface PlaylistsProps {
   initialPlaylists: Playlist[];
+  accessToken: string | null;
 }
 
-export function Playlists({ initialPlaylists }: PlaylistsProps) {
+export function Playlists({ initialPlaylists, accessToken }: PlaylistsProps) {
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(
     null
   );
@@ -31,7 +32,7 @@ export function Playlists({ initialPlaylists }: PlaylistsProps) {
       <div className="text-center py-10 border-2 border-dashed rounded-lg">
         <p className="text-muted-foreground">No se encontraron playlists en tu cuenta de YouTube.</p>
         <p className="text-sm text-muted-foreground/80">
-          Asegúrate de que tu cuenta de Google tiene playlists en YouTube.
+          Asegúrate de que tu cuenta de Google tiene playlists en YouTube o que diste los permisos necesarios.
         </p>
       </div>
     );
@@ -63,7 +64,7 @@ export function Playlists({ initialPlaylists }: PlaylistsProps) {
         </Select>
       </div>
 
-      {selectedPlaylist && <SearchSongs playlist={selectedPlaylist} />}
+      {selectedPlaylist && <SearchSongs playlist={selectedPlaylist} accessToken={accessToken} />}
     </div>
   );
 }

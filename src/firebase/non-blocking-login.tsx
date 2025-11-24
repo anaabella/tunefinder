@@ -12,6 +12,14 @@ export function initiateGoogleSignIn(authInstance: Auth): Promise<UserCredential
   // Solicitamos acceso a las playlists del usuario de YouTube
   provider.addScope('https://www.googleapis.com/auth/youtube.readonly');
   
-  // signInWithPopup devuelve una promesa que podemos retornar
-  return signInWithPopup(authInstance, provider);
+  return signInWithPopup(authInstance, provider).then(result => {
+    // This is a good place to store the access token if needed globally
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    const accessToken = credential?.accessToken;
+    if (accessToken) {
+      // Using sessionStorage to persist the token across page reloads but not across tabs/windows.
+      sessionStorage.setItem('yt-access-token', accessToken);
+    }
+    return result;
+  });
 }

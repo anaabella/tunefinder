@@ -17,7 +17,6 @@ import { Search, Music } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getPlaylistItems } from "@/lib/youtube";
 import { useAuth } from "@/firebase";
-import { GoogleAuthProvider } from "firebase/auth";
 
 const formSchema = z.object({
   songName: z.string().min(2, { message: "Por favor, introduce al menos 2 caracteres." }),
@@ -25,9 +24,10 @@ const formSchema = z.object({
 
 interface SearchSongsProps {
   playlist: Playlist;
+  accessToken: string | null;
 }
 
-export function SearchSongs({ playlist }: SearchSongsProps) {
+export function SearchSongs({ playlist, accessToken }: SearchSongsProps) {
   const [songs, setSongs] = useState<Song[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [submittedQuery, setSubmittedQuery] = useState('');
@@ -49,21 +49,21 @@ export function SearchSongs({ playlist }: SearchSongsProps) {
       });
       return;
     }
+    
+    if (!accessToken) {
+        toast({
+            variant: "destructive",
+            title: "Error de autenticación",
+            description: "No se pudo obtener el permiso para buscar. Intenta iniciar sesión de nuevo.",
+        });
+        return;
+    }
 
     setSubmittedQuery(values.songName);
     setIsLoading(true);
     setSongs([]);
 
     try {
-       const idToken = await auth.currentUser.getIdToken(true);
-       const credential = GoogleAuthProvider.credential(idToken);
-       const tempUser = await auth.currentUser.reauthenticateWithCredential(credential);
-       const accessToken = (tempUser.credential as any)?.accessToken;
-
-       if(!accessToken) {
-         throw new Error("No se pudo obtener el token de acceso de Google.");
-       }
-
       const allItems = await getPlaylistItems(accessToken, playlist.id);
       const filteredSongs = allItems.filter(song => 
         song.title.toLowerCase().includes(values.songName.toLowerCase()) || 
