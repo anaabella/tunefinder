@@ -1,4 +1,3 @@
-
 import type { Song } from '@/lib/types';
 
 interface LocalSong {
@@ -8,15 +7,21 @@ interface LocalSong {
 
 interface WorkerData {
   allYouTubeSongs: Song[];
-  localSongs: LocalSong[];
+  parsedSongs: LocalSong[];
 }
 
 if (typeof self !== 'undefined') {
   self.onmessage = (e: MessageEvent<WorkerData>) => {
-    const { allYouTubeSongs, localSongs } = e.data;
+    const { allYouTubeSongs, parsedSongs } = e.data;
+
+    // Ensure parsedSongs is not undefined or null
+    if (!parsedSongs) {
+        postMessage([]);
+        return;
+    }
 
     const matches: Song[] = [];
-    const lowerCaseParsed = localSongs.map(s => ({
+    const lowerCaseParsed = parsedSongs.map(s => ({
       title: s.title.toLowerCase().trim(),
       artist: s.artist.toLowerCase().trim(),
     }));

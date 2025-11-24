@@ -27,6 +27,7 @@ interface SongResultsProps {
   setSongs: React.Dispatch<React.SetStateAction<Song[]>>;
   accessToken: string | null;
   isLoading?: boolean;
+  isSearching?: boolean;
   searchQuery?: string;
 }
 
@@ -51,6 +52,7 @@ export function SongResults({
   setSongs,
   accessToken,
   isLoading,
+  isSearching,
   searchQuery,
 }: SongResultsProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -108,10 +110,12 @@ export function SongResults({
         
         const songElement = document.getElementById(`song-${songIdToDelete}`);
         if(songElement) {
-            songElement.classList.add('animate-fade-out');
-            songElement.addEventListener('animationend', () => {
+            songElement.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
+            songElement.style.opacity = '0';
+            songElement.style.transform = 'translateX(-100%)';
+            songElement.addEventListener('transitionend', () => {
                  setSongs((prev) => prev.filter((song) => song.id !== songIdToDelete));
-            });
+            }, { once: true });
         } else {
              setSongs((prev) => prev.filter((song) => song.id !== songIdToDelete));
         }
@@ -130,7 +134,8 @@ export function SongResults({
       });
       return false;
     } finally {
-      // We don't set deletingId to null here to allow the animation to complete
+       // Allow animation to complete before resetting the deleting state
+       setTimeout(() => setDeletingId(null), 500);
     }
   };
 
@@ -145,7 +150,7 @@ export function SongResults({
     );
   }
   
-  if (songs.length === 0 && !isLoading) {
+  if (songs.length === 0 && !isLoading && !isSearching) {
     if (searchQuery) {
         return (
             <div className="text-center py-10 border-2 border-dashed rounded-lg">
@@ -165,94 +170,104 @@ export function SongResults({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-2xl font-bold font-headline">
-        Resultados{' '}
-        <span className="text-base font-normal text-muted-foreground">
-          ({songs.length} encontrados)
-        </span>
-      </h3>
-        <div className="flex flex-col gap-3">
-          {songs.map((song) => (
-            <div
-              key={song.id}
-              id={`song-${song.id}`}
-              className="flex items-center gap-4 p-3 rounded-lg border bg-card text-card-foreground transition-opacity"
-            >
-              {song.thumbnailUrl && (
-                <div className="aspect-video relative h-16 w-28 rounded-md overflow-hidden flex-shrink-0">
-                  <Image
-                    src={song.thumbnailUrl}
-                    alt={`Miniatura de ${song.title}`}
-                    fill
-                    style={{ objectFit: 'cover' }}
-                  />
+       {(isLoading || isSearching) && (songs.length === 0) ? (
+         <div className="space-y-3">
+             {Array.from({ length: 5 }).map((_, index) => (
+                 <SongSkeleton key={index} />
+             ))}
+         </div>
+       ) : (
+        <>
+            <h3 className="text-2xl font-bold font-headline">
+                Resultados{' '}
+                <span className="text-base font-normal text-muted-foreground">
+                ({songs.length} encontrados)
+                </span>
+            </h3>
+            <div className="flex flex-col gap-3">
+            {songs.map((song) => (
+                <div
+                key={song.id}
+                id={`song-${song.id}`}
+                className="flex items-center gap-4 p-3 rounded-lg border bg-card text-card-foreground transition-opacity"
+                >
+                {song.thumbnailUrl && (
+                    <div className="aspect-video relative h-16 w-28 rounded-md overflow-hidden flex-shrink-0">
+                    <Image
+                        src={song.thumbnailUrl}
+                        alt={`Miniatura de ${song.title}`}
+                        fill
+                        style={{ objectFit: 'cover' }}
+                    />
+                    </div>
+                )}
+                <div className="flex-grow min-w-0">
+                    <p className="truncate font-semibold">{song.title}</p>
+                    <p className="text-sm text-muted-foreground truncate">
+                    {song.artist}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                    En: <span className="font-medium">{song.playlistName}</span>
+                    </p>
                 </div>
-              )}
-              <div className="flex-grow min-w-0">
-                <p className="truncate font-semibold">{song.title}</p>
-                <p className="text-sm text-muted-foreground truncate">
-                  {song.artist}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  En: <span className="font-medium">{song.playlistName}</span>
-                </p>
-              </div>
-              <div className="flex-shrink-0 flex items-center gap-1">
-                 <Button variant="ghost" size="icon" onClick={() => handlePreviewClick(song)} aria-label="Reproducir preview">
-                    {currentPreview?.songId === song.id && currentPreview.state === 'loading' ? (
-                        <Loader className="h-5 w-5 animate-spin text-primary" />
-                    ) : currentPreview?.songId === song.id && currentPreview.state === 'playing' ? (
-                        <PauseCircle className="h-5 w-5 text-primary" />
-                    ) : (
-                        <PlayCircle className="h-5 w-5 text-primary" />
-                    )}
-                 </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      disabled={deletingId === song.id}
-                      aria-label="Eliminar canción"
-                    >
-                      {deletingId === song.id ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-destructive"></div>
-                      ) : (
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      )}
+                <div className="flex-shrink-0 flex items-center gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => handlePreviewClick(song)} aria-label="Reproducir preview">
+                        {currentPreview?.songId === song.id && currentPreview.state === 'loading' ? (
+                            <Loader className="h-5 w-5 animate-spin text-primary" />
+                        ) : currentPreview?.songId === song.id && currentPreview.state === 'playing' ? (
+                            <PauseCircle className="h-5 w-5 text-primary" />
+                        ) : (
+                            <PlayCircle className="h-5 w-5 text-primary" />
+                        )}
                     </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Esta acción no se puede deshacer. Esto eliminará
-                        permanentemente la canción{' '}
-                        <span className="font-semibold">"{song.title}"</span> de
-                        tu playlist{' '}
-                        <span className="font-semibold">
-                          "{song.playlistName}"
-                        </span>{' '}
-                        en YouTube.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={async (e) => {
-                          e.preventDefault();
-                          handleDeleteSong(song.id);
-                        }}
-                      >
-                        Sí, eliminar
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
+                    <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled={deletingId === song.id}
+                        aria-label="Eliminar canción"
+                        >
+                        {deletingId === song.id ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-destructive"></div>
+                        ) : (
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                        )}
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta acción no se puede deshacer. Esto eliminará
+                            permanentemente la canción{' '}
+                            <span className="font-semibold">"{song.title}"</span> de
+                            tu playlist{' '}
+                            <span className="font-semibold">
+                            "{song.playlistName}"
+                            </span>{' '}
+                            en YouTube.
+                        </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={async (e) => {
+                            e.preventDefault();
+                            handleDeleteSong(song.id);
+                            }}
+                        >
+                            Sí, eliminar
+                        </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                    </AlertDialog>
+                </div>
+                </div>
+            ))}
             </div>
-          ))}
-        </div>
+        </>
+       )}
     </div>
   );
 }

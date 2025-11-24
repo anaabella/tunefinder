@@ -28,6 +28,8 @@ export function LocalPlaylistSearch() {
   const [matchedSongs, setMatchedSongs] = useState<Song[]>([]);
   const [isYouTubeLoading, setIsYouTubeLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filteredMatchedSongs, setFilteredMatchedSongs] = useState<Song[]>([]);
+
 
   const { toast } = useToast();
   const { user } = useUser();
@@ -60,6 +62,20 @@ export function LocalPlaylistSearch() {
       fetchAllSongs();
     }
   }, [user, accessToken, toast]);
+
+  useEffect(() => {
+    const lowerCaseQuery = searchQuery.toLowerCase();
+    if (!searchQuery) {
+        setFilteredMatchedSongs(matchedSongs);
+    } else {
+        const filtered = matchedSongs.filter(song =>
+            song.title.toLowerCase().includes(lowerCaseQuery) ||
+            (song.artist && song.artist.toLowerCase().includes(lowerCaseQuery))
+        );
+        setFilteredMatchedSongs(filtered);
+    }
+  }, [searchQuery, matchedSongs]);
+
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -112,6 +128,7 @@ export function LocalPlaylistSearch() {
 
         worker.onmessage = (e: MessageEvent<Song[]>) => {
             setMatchedSongs(e.data);
+            setFilteredMatchedSongs(e.data); // Also update filtered results
             toast({
                 title: 'Búsqueda completada',
                 description: `Se encontraron ${e.data.length} coincidencias en tus playlists de YouTube.`,
@@ -119,10 +136,21 @@ export function LocalPlaylistSearch() {
             setIsProcessing(false);
             worker.terminate();
         };
+        
+        worker.onerror = (e) => {
+            console.error('Error from worker:', e);
+            toast({
+                variant: "destructive",
+                title: "Error en el Worker",
+                description: "Ocurrió un error al procesar las canciones en segundo plano.",
+            });
+            setIsProcessing(false);
+            worker.terminate();
+        };
 
         worker.postMessage({
             allYouTubeSongs,
-            localSongs: parsedSongs,
+            parsedSongs: parsedSongs,
         });
 
       } catch (error: any) {
@@ -136,11 +164,6 @@ export function LocalPlaylistSearch() {
     };
     reader.readAsText(file);
   };
-  
-  const filteredMatchedSongs = matchedSongs.filter(song =>
-    song.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (song.artist && song.artist.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
   
   if (!user || !accessToken) {
     return (

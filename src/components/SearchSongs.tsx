@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useTransition } from 'react';
 import type { Song } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { getAllSongsFromAllPlaylists } from '@/lib/youtube';
 import { useUser } from '@/firebase';
+import { searchSongs } from '@/ai/flows/search-songs-flow';
 import { YouTubeIcon } from './icons';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -43,6 +44,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
   const [isTokenExpired, setIsTokenExpired] = useState(false);
   const { toast } = useToast();
   const { user } = useUser();
+  const [isSearching, startSearchTransition] = useTransition();
 
   useEffect(() => {
     if (!user || !accessToken) {
@@ -89,28 +91,37 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
     fetchAllSongs();
   }, [user, accessToken, toast]);
 
-  const handleSearch = useCallback(() => {
-    const lowerCaseQuery = query.toLowerCase();
-    if (lowerCaseQuery === '') {
-      setFilteredSongs(songs);
-    } else {
-      const results = songs.filter(
-        (song) =>
-          song.title.toLowerCase().includes(lowerCaseQuery) ||
-          (song.artist && song.artist.toLowerCase().includes(lowerCaseQuery))
-      );
-      setFilteredSongs(results);
+  const handleSearch = useCallback(async (searchQuery: string) => {
+    if (!searchQuery) {
+        setFilteredSongs(songs);
+        return;
     }
-  }, [query, songs]);
 
+    startSearchTransition(async () => {
+      try {
+        const results = await searchSongs({ songs, query: searchQuery });
+        setFilteredSongs(results);
+      } catch (error) {
+        console.error("Search failed:", error);
+        toast({
+            variant: "destructive",
+            title: "Error de Búsqueda",
+            description: "No se pudo completar la búsqueda.",
+        });
+      }
+    });
+  }, [songs, toast]);
+  
   useEffect(() => {
-    // Debounce a la busqueda para no congelar la UI
-    const delayDebounceFn = setTimeout(() => {
-      handleSearch();
-    }, 300);
+    const handler = setTimeout(() => {
+      handleSearch(query);
+    }, 300); // 300ms debounce delay
 
-    return () => clearTimeout(delayDebounceFn);
+    return () => {
+      clearTimeout(handler);
+    };
   }, [query, handleSearch]);
+
 
   if (isTokenExpired) return <RefreshSession />;
 
@@ -139,6 +150,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
               className="pl-10 h-12 text-base"
               autoComplete="off"
             />
+             {isSearching && <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>}
           </div>
         </CardContent>
       </Card>
@@ -148,6 +160,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
         setSongs={setSongs}
         accessToken={accessToken}
         isLoading={isLoading}
+        isSearching={isSearching}
         searchQuery={query}
       />
     </div>
