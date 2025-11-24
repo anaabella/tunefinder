@@ -1,15 +1,22 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useUser, useAuth } from '@/firebase';
 import { initiateGoogleSignIn } from '@/firebase/non-blocking-login';
 import { Button } from '@/components/ui/button';
 import { YouTubeIcon } from '@/components/icons';
 import { useToast } from '@/hooks/use-toast';
 import { SearchSongs } from '@/components/SearchSongs';
+import { setPersistence, browserLocalPersistence } from 'firebase/auth';
 
 function Login() {
   const auth = useAuth();
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Set persistence to local to keep user signed in across sessions
+    setPersistence(auth, browserLocalPersistence);
+  }, [auth]);
 
   const handleLogin = async () => {
     try {
