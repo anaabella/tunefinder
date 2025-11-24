@@ -129,28 +129,36 @@ const getAllSongsFromAllPlaylistsFlow = ai.defineFlow(
     outputSchema: z.array(z.custom<Song>()),
   },
   async (accessToken) => {
-    const playlists = await getPlaylistsFlow(accessToken);
+    try {
+        const playlists = await getPlaylistsFlow(accessToken);
 
-    const allSongsPromises = playlists.map(async (playlist) => {
-      if (!playlist.id) return [];
-      const songs = await getPlaylistItemsFlow({
-        accessToken,
-        playlistId: playlist.id,
-      });
-      // Add playlist name to each song
-      return songs.map((song) => ({
-        ...song,
-        playlistName: playlist.name,
-      }));
-    });
+        const allSongsPromises = playlists.map(async (playlist) => {
+          if (!playlist.id) return [];
+          const songs = await getPlaylistItemsFlow({
+            accessToken,
+            playlistId: playlist.id,
+          });
+          // Add playlist name to each song
+          return songs.map((song) => ({
+            ...song,
+            playlistName: playlist.name,
+          }));
+        });
 
-    const allSongsArrays = await Promise.all(allSongsPromises);
-    const allSongs = allSongsArrays.flat();
-    
-    // Default sort by published date descending (newest first)
-    allSongs.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+        const allSongsArrays = await Promise.all(allSongsPromises);
+        const allSongs = allSongsArrays.flat();
+        
+        // Default sort by published date descending (newest first)
+        allSongs.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 
-    return allSongs;
+        return allSongs;
+    } catch (error: any) {
+        // Detect expired token error from Google's API response
+        if (error.code === 401 || (error.response?.data?.error?.message.includes('Invalid Credentials'))) {
+            throw new Error('YOUTUBE_TOKEN_EXPIRED');
+        }
+        throw error;
+    }
   }
 );
 

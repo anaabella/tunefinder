@@ -11,7 +11,7 @@ import type { Song } from "@/lib/types";
 import { Search, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getAllSongsFromAllPlaylists, deletePlaylistItem } from "@/lib/youtube";
-import { useUser } from "@/firebase";
+import { useUser, useAuth } from "@/firebase";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,9 +23,46 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { initiateGoogleSignIn } from "@/firebase/non-blocking-login";
+import { YouTubeIcon } from "./icons";
 
 interface SearchSongsProps {
   accessToken: string | null;
+}
+
+function ExpiredTokenLogin() {
+    const auth = useAuth();
+    const { toast } = useToast();
+
+    const handleLogin = async () => {
+      try {
+        await initiateGoogleSignIn(auth);
+        // On successful login, the page will reload or the parent component will re-fetch data.
+      } catch (error: any) {
+         if (error.code === 'auth/popup-closed-by-user') {
+          console.log('Login popup closed by user.');
+          return;
+        }
+        console.error('Error durante el inicio de sesión:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error de inicio de sesión',
+          description: error.message || 'No se pudo completar el inicio de sesión con Google.',
+        });
+      }
+    };
+  
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-8 border-2 border-dashed rounded-lg">
+        <h2 className="text-2xl font-bold">Tu sesión de YouTube ha caducado</h2>
+        <p className="text-muted-foreground">
+          Para continuar, por favor inicia sesión de nuevo para refrescar tu permiso.
+        </p>
+        <Button onClick={handleLogin}>
+          <YouTubeIcon className="mr-2 h-4 w-4" /> Refrescar Sesión con Google
+        </Button>
+      </div>
+    );
 }
 
 export function SearchSongs({ accessToken }: SearchSongsProps) {
@@ -34,6 +71,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true); // Start loading initially
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [isTokenExpired, setIsTokenExpired] = useState(false);
   const { toast } = useToast();
   const { user } = useUser();
 
@@ -46,16 +84,22 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
 
     const fetchAllSongs = async () => {
       setIsLoading(true);
+      setIsTokenExpired(false);
       try {
         const results = await getAllSongsFromAllPlaylists(accessToken);
         setAllSongs(results);
         setFilteredSongs(results); // Initially, show all songs sorted by date
       } catch (error: any) {
-        toast({
-          variant: "destructive",
-          title: "Error al cargar tus canciones",
-          description: error.message || "No se pudieron obtener las canciones de tus playlists.",
-        });
+        if (error.message === 'YOUTUBE_TOKEN_EXPIRED') {
+            setIsTokenExpired(true);
+            localStorage.removeItem('yt-access-token'); // Clear the expired token
+        } else {
+            toast({
+              variant: "destructive",
+              title: "Error al cargar tus canciones",
+              description: error.message || "No se pudieron obtener las canciones de tus playlists.",
+            });
+        }
       } finally {
         setIsLoading(false);
       }
@@ -145,6 +189,8 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
             </div>
         </CardContent>
       </Card>
+      
+      {isTokenExpired && <ExpiredTokenLogin />}
 
       {isLoading && (
         <div className="flex justify-center items-center p-8">
@@ -153,7 +199,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
         </div>
       )}
 
-      {!isLoading && (
+      {!isLoading && !isTokenExpired && (
         <div className="space-y-4">
           <h3 className="text-2xl font-bold font-headline">Resultados <span className="text-base font-normal text-muted-foreground">({filteredSongs.length} encontrados)</span></h3>
           {filteredSongs.length > 0 ? (
