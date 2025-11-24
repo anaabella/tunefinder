@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useTransition } from 'react';
 import type { Song } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { getAllSongsFromAllPlaylists } from '@/lib/youtube';
 import { useUser } from '@/firebase';
 import { searchSongs } from '@/ai/flows/search-songs-flow';
 import { YouTubeIcon } from './icons';
@@ -37,80 +36,45 @@ function RefreshSession() {
 }
 
 export function SearchSongs({ accessToken }: SearchSongsProps) {
-  const [songs, setSongs] = useState<Song[]>([]);
   const [filteredSongs, setFilteredSongs] = useState<Song[]>([]);
   const [query, setQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isTokenExpired, setIsTokenExpired] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const { toast } = useToast();
   const { user } = useUser();
   const [isSearching, startSearchTransition] = useTransition();
 
-  useEffect(() => {
+  const handleSearch = useCallback(async (searchQuery: string) => {
     if (!user || !accessToken) {
       setIsLoading(false);
       return;
     }
 
-    const fetchAllSongs = async () => {
-      setIsLoading(true);
-      setIsTokenExpired(false);
+    setHasSearched(true);
+    startSearchTransition(async () => {
       try {
-        const ignoredPlaylistsStr =
-          localStorage.getItem('ignored-playlists') || '[]';
+        const ignoredPlaylistsStr = localStorage.getItem('ignored-playlists') || '[]';
         const ignoredPlaylistIds = JSON.parse(ignoredPlaylistsStr);
-
-        const results = await getAllSongsFromAllPlaylists(
-          accessToken,
-          ignoredPlaylistIds
-        );
-        const sortedResults = results.sort(
-          (a, b) =>
-            new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-        );
-        setSongs(sortedResults);
-        setFilteredSongs(sortedResults);
+        
+        const results = await searchSongs({ accessToken, query: searchQuery, ignoredPlaylistIds });
+        
+        setFilteredSongs(results);
       } catch (error: any) {
-        if (error.message === 'YOUTUBE_TOKEN_EXPIRED') {
+        if (error.message === 'YOUTUBE_TOKEN_EXPIRED' || (error.cause as any)?.message === 'YOUTUBE_TOKEN_EXPIRED') {
           setIsTokenExpired(true);
           localStorage.removeItem('yt-access-token');
         } else {
-          toast({
-            variant: 'destructive',
-            title: 'Error al cargar tus canciones',
-            description:
-              error.message ||
-              'No se pudieron obtener las canciones de tus playlists.',
-          });
+            console.error("Search failed:", error);
+            toast({
+                variant: "destructive",
+                title: "Error de Búsqueda",
+                description: "No se pudo completar la búsqueda.",
+            });
         }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchAllSongs();
-  }, [user, accessToken, toast]);
-
-  const handleSearch = useCallback(async (searchQuery: string) => {
-    if (!searchQuery) {
-        setFilteredSongs(songs);
-        return;
-    }
-
-    startSearchTransition(async () => {
-      try {
-        const results = await searchSongs({ songs, query: searchQuery });
-        setFilteredSongs(results);
-      } catch (error) {
-        console.error("Search failed:", error);
-        toast({
-            variant: "destructive",
-            title: "Error de Búsqueda",
-            description: "No se pudo completar la búsqueda.",
-        });
       }
     });
-  }, [songs, toast]);
+  }, [user, accessToken, toast]);
   
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -122,7 +86,6 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
     };
   }, [query, handleSearch]);
 
-
   if (isTokenExpired) return <RefreshSession />;
 
   return (
@@ -131,12 +94,9 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
         <h2 className="text-3xl md:text-4xl font-bold font-headline tracking-tight">
           Busca en todas tus Playlists
         </h2>
-        {!isLoading && songs.length > 0 && (
-          <p className="text-muted-foreground text-lg">
-            Has encontrado {songs.length} canciones en total. ¡Usa la barra de
-            abajo para buscar!
-          </p>
-        )}
+        <p className="text-muted-foreground text-lg">
+            Escribe en la barra de abajo para buscar por título o artista en todas tus playlists de YouTube.
+        </p>
       </div>
 
       <Card className="shadow-lg sticky top-24 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -157,11 +117,12 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
 
       <SongResults
         songs={filteredSongs}
-        setSongs={setSongs}
+        setSongs={setFilteredSongs}
         accessToken={accessToken}
-        isLoading={isLoading}
+        isLoading={isSearching && !hasSearched}
         isSearching={isSearching}
         searchQuery={query}
+        initialSearch={!hasSearched}
       />
     </div>
   );

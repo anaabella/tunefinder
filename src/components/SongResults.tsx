@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { deletePlaylistItem } from '@/lib/youtube';
 import type { Song } from '@/lib/types';
-import { Trash2, PlayCircle, Music4, PauseCircle, Loader } from 'lucide-react';
+import { Trash2, PlayCircle, Music4, PauseCircle, Loader, Search } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAudioPreview } from './AudioPreviewController';
 import { getSongPreview } from '@/ai/flows/get-song-preview-flow';
@@ -29,6 +29,7 @@ interface SongResultsProps {
   isLoading?: boolean;
   isSearching?: boolean;
   searchQuery?: string;
+  initialSearch?: boolean; // New prop to handle initial state
 }
 
 const SongSkeleton = () => (
@@ -54,6 +55,7 @@ export function SongResults({
   isLoading,
   isSearching,
   searchQuery,
+  initialSearch,
 }: SongResultsProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const { playPreview, stopPreview, currentPreview } = useAudioPreview();
@@ -142,15 +144,25 @@ export function SongResults({
   if (isLoading) {
     return (
         <div className="space-y-3">
-            <h3 className="text-2xl font-bold font-headline">Cargando canciones...</h3>
+            <h3 className="text-2xl font-bold font-headline">Buscando...</h3>
             {Array.from({ length: 5 }).map((_, index) => (
                 <SongSkeleton key={index} />
             ))}
         </div>
     );
   }
+
+  if (initialSearch) {
+    return (
+      <div className="text-center py-10 border-2 border-dashed rounded-lg flex flex-col items-center gap-4">
+        <Search className="w-12 h-12 text-muted-foreground" />
+        <h3 className="text-xl font-semibold">Comienza tu búsqueda</h3>
+        <p className="text-muted-foreground max-w-md">Escribe en la barra de búsqueda de arriba para encontrar canciones en tus playlists.</p>
+      </div>
+    );
+  }
   
-  if (songs.length === 0 && !isLoading && !isSearching) {
+  if (songs.length === 0 && !isSearching) {
     if (searchQuery) {
         return (
             <div className="text-center py-10 border-2 border-dashed rounded-lg">
@@ -170,7 +182,7 @@ export function SongResults({
 
   return (
     <div className="space-y-4">
-       {(isLoading || isSearching) && (songs.length === 0) ? (
+       {(isSearching && songs.length === 0) ? (
          <div className="space-y-3">
              {Array.from({ length: 5 }).map((_, index) => (
                  <SongSkeleton key={index} />

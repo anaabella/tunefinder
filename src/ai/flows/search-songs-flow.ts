@@ -11,8 +11,8 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import type { Song } from '@/lib/types';
+import { getAllSongsFromAllPlaylists } from '@/lib/youtube';
 
-// Define a Zod schema that matches the Song type for validation.
 const SongSchema = z.object({
   id: z.string(),
   playlistId: z.string(),
@@ -25,33 +25,35 @@ const SongSchema = z.object({
 });
 
 const SearchSongsInputSchema = z.object({
-  songs: z.array(SongSchema).describe('The list of songs to search through.'),
+  accessToken: z.string().describe('The YouTube access token.'),
   query: z.string().describe('The search query.'),
+  ignoredPlaylistIds: z.array(z.string()).optional().describe('An optional list of playlist IDs to ignore.'),
 });
 
-// The output is an array of songs that match the schema.
 const SearchSongsOutputSchema = z.array(SongSchema);
 
 export type SearchSongsInput = z.infer<typeof SearchSongsInputSchema>;
 export type SearchSongsOutput = z.infer<typeof SearchSongsOutputSchema>;
 
-// Define the flow
 const searchSongsFlow = ai.defineFlow(
   {
     name: 'searchSongsFlow',
     inputSchema: SearchSongsInputSchema,
     outputSchema: SearchSongsOutputSchema,
   },
-  async ({ songs, query }) => {
-    // If the query is empty, return all songs.
+  async ({ accessToken, query, ignoredPlaylistIds }) => {
+    
+    const allSongs = await getAllSongsFromAllPlaylists(accessToken, ignoredPlaylistIds);
+    
     if (!query) {
-      return songs;
+      // If the query is empty, return all songs sorted by date
+      return allSongs.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
     }
-
+    
     const lowerCaseQuery = query.toLowerCase();
 
     // Perform the filtering logic on the server side.
-    const filteredSongs = songs.filter(
+    const filteredSongs = allSongs.filter(
       (song) =>
         song.title.toLowerCase().includes(lowerCaseQuery) ||
         (song.artist && song.artist.toLowerCase().includes(lowerCaseQuery))
@@ -61,11 +63,6 @@ const searchSongsFlow = ai.defineFlow(
   }
 );
 
-/**
- * Wraps the Genkit flow to be easily called from the application.
- * @param input The songs list and the search query.
- * @returns A promise that resolves to the filtered list of songs.
- */
 export async function searchSongs(
   input: SearchSongsInput
 ): Promise<SearchSongsOutput> {
