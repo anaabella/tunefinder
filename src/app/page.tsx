@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useUser, useAuth } from '@/firebase';
-import { initiateGoogleSignIn } from '@/firebase/non-blocking-login';
+import { initiateGoogleSignIn, handleRedirectSignIn } from '@/firebase/non-blocking-login';
 import { Button } from '@/components/ui/button';
 import { YouTubeIcon } from '@/components/icons';
 import { useToast } from '@/hooks/use-toast';
@@ -97,6 +97,8 @@ function RefreshSession() {
 
 export default function Home() {
   const { user, isUserLoading } = useUser();
+  const auth = useAuth();
+  const { toast } = useToast();
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
   useEffect(() => {
@@ -104,6 +106,20 @@ export default function Home() {
     const token = localStorage.getItem('yt-access-token');
     setAccessToken(token);
   }, []);
+
+  // Handle redirect sign-in for mobile
+  useEffect(() => {
+    if (auth && !user && !isUserLoading) {
+      handleRedirectSignIn(auth).catch(error => {
+        console.error("Redirect sign-in failed", error);
+        toast({
+            variant: "destructive",
+            title: "Error de Inicio de Sesión",
+            description: error.message || "No se pudo completar el inicio de sesión."
+        });
+      });
+    }
+  }, [auth, user, isUserLoading, toast]);
 
 
   if (isUserLoading) {
