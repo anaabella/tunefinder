@@ -130,12 +130,12 @@ const getPlaylistItemsFlow = ai.defineFlow(
         'Artista Desconocido';
 
       return {
-        id: item.id || '',
+        id: item.id || '', // This is the playlistItemId
         playlistId: playlistId,
         playlistName: '', // Se llenará más tarde
         title: title,
         artist: videoOwner,
-        youtubeVideoId: item.snippet?.resourceId?.videoId || '',
+        youtubeVideoId: item.snippet?.resourceId?.videoId || '', // This is the videoId
         thumbnailUrl: item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url || '',
         publishedAt: item.snippet?.publishedAt || new Date(0).toISOString(),
       };
@@ -162,30 +162,25 @@ const getAllSongsFromAllPlaylistsFlow = ai.defineFlow(
     try {
       const playlists = await getPlaylistsFlow({ accessToken, ignoredPlaylistIds });
       
-      // Creamos un array de promesas, una por cada playlist.
       const songPromises = playlists.map(async (playlist) => {
         const songsFromPlaylist = await getPlaylistItemsFlow({
           accessToken,
           playlistId: playlist.id,
         });
-        // Añadimos el nombre de la playlist a cada canción.
         return songsFromPlaylist.map(song => ({
           ...song,
           playlistName: playlist.name,
         }));
       });
 
-      // Esperamos a que todas las promesas se resuelvan en paralelo.
       const results = await Promise.all(songPromises);
-
-      // Aplanamos el array de arrays de canciones en un solo array.
       const allSongs = results.flat();
 
       return allSongs;
 
     } catch (error: any) {
         if (error instanceof Error && error.message === 'YOUTUBE_TOKEN_EXPIRED') {
-            throw error; // Re-throw a la capa superior
+            throw error;
         }
         console.error('Error fetching all songs:', error);
         throw new Error('Failed to fetch songs from playlists.');
@@ -230,4 +225,57 @@ const deletePlaylistItemFlow = ai.defineFlow(
   
 export async function deletePlaylistItem(accessToken: string, playlistItemId: string): Promise<boolean> {
     return await deletePlaylistItemFlow({ accessToken, playlistItemId });
+}
+
+// New flow to move a song
+const MovePlaylistItemInputSchema = z.object({
+  accessToken: z.string(),
+  playlistItemId: z.string(),
+  newPlaylistId: z.string(),
+  videoId: z.string(),
+});
+
+const movePlaylistItemFlow = ai.defineFlow(
+  {
+    name: 'movePlaylistItemFlow',
+    inputSchema: MovePlaylistItemInputSchema,
+    outputSchema: z.boolean(),
+  },
+  async ({ accessToken, playlistItemId, newPlaylistId, videoId }) => {
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({ access_token: accessToken });
+
+    try {
+      // 1. Add song to the new playlist
+      await youtube.playlistItems.insert({
+        part: ['snippet'],
+        auth: oauth2Client,
+        requestBody: {
+          snippet: {
+            playlistId: newPlaylistId,
+            resourceId: {
+              kind: 'youtube#video',
+              videoId: videoId,
+            },
+          },
+        },
+      });
+
+      // 2. Delete song from the old playlist
+      await youtube.playlistItems.delete({
+        id: playlistItemId,
+        auth: oauth2Client,
+      });
+      
+      return true;
+    } catch (error: any) {
+      console.error('Error moving playlist item:', JSON.stringify(error, null, 2));
+      const errorMessage = error?.response?.data?.error?.message || error.message || 'Error desconocido de la API.';
+      throw new Error(`Error de la API de YouTube: ${errorMessage}`);
+    }
+  }
+);
+
+export async function movePlaylistItem(input: z.infer<typeof MovePlaylistItemInputSchema>): Promise<boolean> {
+  return await movePlaylistItemFlow(input);
 }
