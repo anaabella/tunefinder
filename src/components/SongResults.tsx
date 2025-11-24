@@ -17,9 +17,10 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { deletePlaylistItem } from '@/lib/youtube';
 import type { Song } from '@/lib/types';
-import { Trash2, PlayCircle, Music4 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Trash2, PlayCircle, Music4, PauseCircle, Loader } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAudioPreview } from './AudioPreviewController';
+import { getSongPreview } from '@/ai/flows/get-song-preview-flow';
 
 interface SongResultsProps {
   songs: Song[];
@@ -53,8 +54,35 @@ export function SongResults({
   searchQuery,
 }: SongResultsProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [songToPlay, setSongToPlay] = useState<Song | null>(null);
+  const { playPreview, stopPreview, currentPreview } = useAudioPreview();
   const { toast } = useToast();
+
+  const handlePreviewClick = async (song: Song) => {
+    if (currentPreview?.songId === song.id && currentPreview.state === 'playing') {
+      stopPreview();
+      return;
+    }
+
+    if (currentPreview?.state === 'loading' && currentPreview?.songId === song.id) {
+      // It's already loading, do nothing
+      return;
+    }
+
+    playPreview(song.id, ''); // Triggers the loading state immediately
+
+    try {
+        const previewUrl = await getSongPreview({ title: song.title, artist: song.artist });
+        playPreview(song.id, previewUrl);
+    } catch (error) {
+        console.error("Failed to get song preview:", error);
+        toast({
+            variant: "destructive",
+            title: "Error de Previsualización",
+            description: "No se pudo obtener la vista previa de la canción.",
+        });
+        stopPreview(); // Clear loading state on error
+    }
+  };
 
   const handleDeleteSong = async (songIdToDelete: string) => {
     setDeletingId(songIdToDelete);
@@ -78,7 +106,6 @@ export function SongResults({
             'La canción ha sido eliminada de tu playlist de YouTube.',
         });
         
-        // Optimistic UI update with animation trigger
         const songElement = document.getElementById(`song-${songIdToDelete}`);
         if(songElement) {
             songElement.classList.add('animate-fade-out');
@@ -103,7 +130,7 @@ export function SongResults({
       });
       return false;
     } finally {
-        // We don't set deletingId to null here to allow the animation to complete
+      // We don't set deletingId to null here to allow the animation to complete
     }
   };
 
@@ -171,8 +198,14 @@ export function SongResults({
                 </p>
               </div>
               <div className="flex-shrink-0 flex items-center gap-1">
-                 <Button variant="ghost" size="icon" onClick={() => setSongToPlay(song)} aria-label="Reproducir canción">
-                    <PlayCircle className="h-5 w-5 text-primary" />
+                 <Button variant="ghost" size="icon" onClick={() => handlePreviewClick(song)} aria-label="Reproducir preview">
+                    {currentPreview?.songId === song.id && currentPreview.state === 'loading' ? (
+                        <Loader className="h-5 w-5 animate-spin text-primary" />
+                    ) : currentPreview?.songId === song.id && currentPreview.state === 'playing' ? (
+                        <PauseCircle className="h-5 w-5 text-primary" />
+                    ) : (
+                        <PlayCircle className="h-5 w-5 text-primary" />
+                    )}
                  </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -209,7 +242,6 @@ export function SongResults({
                         onClick={async (e) => {
                           e.preventDefault();
                           handleDeleteSong(song.id);
-                          // El dialogo se cerrará por la animación en el elemento
                         }}
                       >
                         Sí, eliminar
@@ -221,27 +253,6 @@ export function SongResults({
             </div>
           ))}
         </div>
-
-        {songToPlay && (
-            <Dialog open={!!songToPlay} onOpenChange={(isOpen) => !isOpen && setSongToPlay(null)}>
-                <DialogContent className="max-w-2xl p-0 border-0">
-                    <DialogHeader className="p-4 pb-0">
-                        <DialogTitle className="truncate">{songToPlay.title}</DialogTitle>
-                    </DialogHeader>
-                    <div className="aspect-video">
-                        <iframe 
-                            width="100%" 
-                            height="100%" 
-                            src={`https://www.youtube.com/embed/${songToPlay.youtubeVideoId}?autoplay=1`} 
-                            title="YouTube video player" 
-                            frameBorder="0" 
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                            allowFullScreen>
-                        </iframe>
-                    </div>
-                </DialogContent>
-            </Dialog>
-        )}
     </div>
   );
 }

@@ -6,3 +6,8 @@ declare module 'worker-loader!*' {
 
   export default WebpackWorker;
 }
+
+declare module 'node-fetch' {
+    const fetch: typeof import('undici').fetch;
+    export default fetch;
+}

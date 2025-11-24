@@ -6,6 +6,7 @@ import { FirebaseClientProvider } from '@/firebase';
 import { UserAuth } from '@/components/UserAuth';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { SettingsMenu } from '@/components/SettingsMenu';
+import { AudioPreviewController } from '@/components/AudioPreviewController';
 
 export const metadata: Metadata = {
   title: 'TuneFinder',
@@ -32,27 +33,29 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <FirebaseClientProvider>
-            <header className="py-4 px-4 md:px-8 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-              <div className="container mx-auto flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Music2 className="text-accent h-6 w-6" />
-                  <h1 className="text-xl font-bold font-headline">TuneFinder</h1>
+             <AudioPreviewController>
+              <header className="py-4 px-4 md:px-8 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+                <div className="container mx-auto flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Music2 className="text-accent h-6 w-6" />
+                    <h1 className="text-xl font-bold font-headline">TuneFinder</h1>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <UserAuth />
+                    <SettingsMenu />
+                  </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <UserAuth />
-                  <SettingsMenu />
+              </header>
+              <main className="flex-grow">
+                {children}
+              </main>
+              <footer className="py-6 px-4 md:px-8 text-center text-sm text-muted-foreground">
+                <div className="container mx-auto">
+                  <p>&copy; {new Date().getFullYear()} TuneFinder. Creado con &#x2764;&#xFE0F;.</p>
                 </div>
-              </div>
-            </header>
-            <main className="flex-grow">
-              {children}
-            </main>
-            <footer className="py-6 px-4 md:px-8 text-center text-sm text-muted-foreground">
-              <div className="container mx-auto">
-                <p>&copy; {new Date().getFullYear()} TuneFinder. Creado con &#x2764;&#xFE0F;.</p>
-              </div>
-            </footer>
-            <Toaster />
+              </footer>
+              <Toaster />
+            </AudioPreviewController>
           </FirebaseClientProvider>
         </ThemeProvider>
       </body>
