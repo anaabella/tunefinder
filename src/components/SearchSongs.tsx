@@ -104,6 +104,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
   }, [query, songs]);
 
   useEffect(() => {
+    // Debounce a la busqueda para no congelar la UI
     const delayDebounceFn = setTimeout(() => {
       handleSearch();
     }, 300);
@@ -119,7 +120,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
         <h2 className="text-3xl md:text-4xl font-bold font-headline tracking-tight">
           Busca en todas tus Playlists
         </h2>
-        {!isLoading && (
+        {!isLoading && songs.length > 0 && (
           <p className="text-muted-foreground text-lg">
             Has encontrado {songs.length} canciones en total. ¡Usa la barra de
             abajo para buscar!
@@ -147,6 +148,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
         setSongs={setSongs}
         accessToken={accessToken}
         isLoading={isLoading}
+        searchQuery={query}
       />
     </div>
   );
