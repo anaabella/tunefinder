@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -24,9 +23,15 @@ interface SongResultsProps {
   songs: Song[];
   setSongs: React.Dispatch<React.SetStateAction<Song[]>>;
   accessToken: string | null;
+  isLoading?: boolean;
 }
 
-export function SongResults({ songs, setSongs, accessToken }: SongResultsProps) {
+export function SongResults({
+  songs,
+  setSongs,
+  accessToken,
+  isLoading,
+}: SongResultsProps) {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -69,6 +74,17 @@ export function SongResults({ songs, setSongs, accessToken }: SongResultsProps) 
       setIsDeleting(null);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <p className="ml-4 text-muted-foreground">
+          Cargando todas tus canciones...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

@@ -13,7 +13,7 @@ import { getAllSongsFromAllPlaylists } from '@/lib/youtube';
 import { useUser } from '@/firebase';
 import { SongResults } from './SongResults';
 import { Input } from './ui/input';
-import SongMatcherWorker from 'worker-loader!../workers/song-matcher.worker';
+import SongMatcherWorker from '@/workers/song-matcher.worker';
 
 interface LocalSong {
   title: string;

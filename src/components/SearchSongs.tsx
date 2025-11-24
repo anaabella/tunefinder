@@ -1,38 +1,38 @@
+'use client';
 
-"use client";
-
-import { useState, useEffect } from "react";
-import type { Song } from "@/lib/types";
-import { useToast } from "@/hooks/use-toast";
-import { getAllSongsFromAllPlaylists } from "@/lib/youtube";
-import { useUser } from "@/firebase";
-import { YouTubeIcon } from "./icons";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Card, CardContent } from "./ui/card";
-import { Search } from "lucide-react";
-import { SongResults } from "./SongResults";
+import { useState, useEffect, useCallback } from 'react';
+import type { Song } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
+import { getAllSongsFromAllPlaylists } from '@/lib/youtube';
+import { useUser } from '@/firebase';
+import { YouTubeIcon } from './icons';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Card, CardContent } from './ui/card';
+import { Search } from 'lucide-react';
+import { SongResults } from './SongResults';
 
 interface SearchSongsProps {
   accessToken: string | null;
 }
 
 function RefreshSession() {
-    const handleLogin = () => {
-        window.location.reload();
-    };
-  
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-8 border-2 border-dashed rounded-lg">
-        <h2 className="text-2xl font-bold">Tu sesión de YouTube ha caducado</h2>
-        <p className="text-muted-foreground">
-          Para continuar, por favor refresca la página. Si el problema persiste, inicia sesión de nuevo.
-        </p>
-        <Button onClick={handleLogin}>
-          <YouTubeIcon className="mr-2 h-4 w-4" /> Refrescar Página
-        </Button>
-      </div>
-    );
+  const handleLogin = () => {
+    window.location.reload();
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-8 border-2 border-dashed rounded-lg">
+      <h2 className="text-2xl font-bold">Tu sesión de YouTube ha caducado</h2>
+      <p className="text-muted-foreground">
+        Para continuar, por favor refresca la página. Si el problema persiste,
+        inicia sesión de nuevo.
+      </p>
+      <Button onClick={handleLogin}>
+        <YouTubeIcon className="mr-2 h-4 w-4" /> Refrescar Página
+      </Button>
+    </div>
+  );
 }
 
 export function SearchSongs({ accessToken }: SearchSongsProps) {
@@ -44,7 +44,6 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
   const { toast } = useToast();
   const { user } = useUser();
 
-  // Effect to fetch all songs from all playlists
   useEffect(() => {
     if (!user || !accessToken) {
       setIsLoading(false);
@@ -55,23 +54,32 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
       setIsLoading(true);
       setIsTokenExpired(false);
       try {
-        const ignoredPlaylistsStr = localStorage.getItem('ignored-playlists') || '[]';
+        const ignoredPlaylistsStr =
+          localStorage.getItem('ignored-playlists') || '[]';
         const ignoredPlaylistIds = JSON.parse(ignoredPlaylistsStr);
-        
-        const results = await getAllSongsFromAllPlaylists(accessToken, ignoredPlaylistIds);
-        const sortedResults = results.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+
+        const results = await getAllSongsFromAllPlaylists(
+          accessToken,
+          ignoredPlaylistIds
+        );
+        const sortedResults = results.sort(
+          (a, b) =>
+            new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+        );
         setSongs(sortedResults);
         setFilteredSongs(sortedResults);
       } catch (error: any) {
         if (error.message === 'YOUTUBE_TOKEN_EXPIRED') {
-            setIsTokenExpired(true);
-            localStorage.removeItem('yt-access-token');
+          setIsTokenExpired(true);
+          localStorage.removeItem('yt-access-token');
         } else {
-            toast({
-              variant: "destructive",
-              title: "Error al cargar tus canciones",
-              description: error.message || "No se pudieron obtener las canciones de tus playlists.",
-            });
+          toast({
+            variant: 'destructive',
+            title: 'Error al cargar tus canciones',
+            description:
+              error.message ||
+              'No se pudieron obtener las canciones de tus playlists.',
+          });
         }
       } finally {
         setIsLoading(false);
@@ -81,57 +89,65 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
     fetchAllSongs();
   }, [user, accessToken, toast]);
 
-  // Effect for filtering songs based on query
-  useEffect(() => {
+  const handleSearch = useCallback(() => {
     const lowerCaseQuery = query.toLowerCase();
-    
     if (lowerCaseQuery === '') {
-      setFilteredSongs(songs); // Already sorted
+      setFilteredSongs(songs);
     } else {
-      const results = songs.filter(song =>
-        song.title.toLowerCase().includes(lowerCaseQuery) ||
-        (song.artist && song.artist.toLowerCase().includes(lowerCaseQuery))
+      const results = songs.filter(
+        (song) =>
+          song.title.toLowerCase().includes(lowerCaseQuery) ||
+          (song.artist && song.artist.toLowerCase().includes(lowerCaseQuery))
       );
       setFilteredSongs(results);
     }
   }, [query, songs]);
 
-  if (isTokenExpired) return <RefreshSession />;
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      handleSearch();
+    }, 300);
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        <p className="ml-4 text-muted-foreground">Cargando todas tus canciones...</p>
-      </div>
-    );
-  }
+    return () => clearTimeout(delayDebounceFn);
+  }, [query, handleSearch]);
+
+  if (isTokenExpired) return <RefreshSession />;
 
   return (
     <div className="max-w-4xl mx-auto flex flex-col gap-8">
       <div className="text-center space-y-2">
-        <h2 className="text-3xl md:text-4xl font-bold font-headline tracking-tight">Busca en todas tus Playlists</h2>
-        <p className="text-muted-foreground text-lg">
-          Has encontrado {songs.length} canciones en total. ¡Usa la barra de abajo para buscar!
-        </p>
+        <h2 className="text-3xl md:text-4xl font-bold font-headline tracking-tight">
+          Busca en todas tus Playlists
+        </h2>
+        {!isLoading && (
+          <p className="text-muted-foreground text-lg">
+            Has encontrado {songs.length} canciones en total. ¡Usa la barra de
+            abajo para buscar!
+          </p>
+        )}
       </div>
-        
+
       <Card className="shadow-lg sticky top-24 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <CardContent className="pt-6">
-              <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                  <Input 
-                      placeholder="Busca por título o artista en todas tus playlists..." 
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      className="pl-10 h-12 text-base" 
-                      autoComplete="off" 
-                  />
-              </div>
-          </CardContent>
+        <CardContent className="pt-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              placeholder="Busca por título o artista en todas tus playlists..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pl-10 h-12 text-base"
+              autoComplete="off"
+            />
+          </div>
+        </CardContent>
       </Card>
-      
-      <SongResults songs={filteredSongs} setSongs={setSongs} accessToken={accessToken} />
+
+      <SongResults
+        songs={filteredSongs}
+        setSongs={setSongs}
+        accessToken={accessToken}
+        isLoading={isLoading}
+      />
     </div>
   );
 }

@@ -11,32 +11,36 @@ interface WorkerData {
   localSongs: LocalSong[];
 }
 
-self.onmessage = (e: MessageEvent<WorkerData>) => {
-  const { allYouTubeSongs, localSongs } = e.data;
+if (typeof self !== 'undefined') {
+  self.onmessage = (e: MessageEvent<WorkerData>) => {
+    const { allYouTubeSongs, localSongs } = e.data;
 
-  const matches: Song[] = [];
-  const lowerCaseParsed = localSongs.map(s => ({
-    title: s.title.toLowerCase().trim(),
-    artist: s.artist.toLowerCase().trim(),
-  }));
+    const matches: Song[] = [];
+    const lowerCaseParsed = localSongs.map(s => ({
+      title: s.title.toLowerCase().trim(),
+      artist: s.artist.toLowerCase().trim(),
+    }));
 
-  const ytSongsSet = new Set<string>();
+    const ytSongsSet = new Set<string>();
 
-  allYouTubeSongs.forEach(ytSong => {
-    const ytTitle = ytSong.title.toLowerCase().trim();
-    // const ytArtist = ytSong.artist.toLowerCase().trim();
+    allYouTubeSongs.forEach(ytSong => {
+      const ytTitle = ytSong.title.toLowerCase().trim();
+      // const ytArtist = ytSong.artist.toLowerCase().trim();
 
-    if (lowerCaseParsed.some(localSong => 
-      (localSong.title && ytTitle.includes(localSong.title)) || 
-      (ytTitle && localSong.title && ytTitle.includes(localSong.title))
-    )) {
-      // Avoid adding duplicates
-      if (!ytSongsSet.has(ytSong.id)) {
-        matches.push(ytSong);
-        ytSongsSet.add(ytSong.id);
+      if (lowerCaseParsed.some(localSong => 
+        (localSong.title && ytTitle.includes(localSong.title)) || 
+        (ytTitle && localSong.title && ytTitle.includes(localSong.title))
+      )) {
+        // Avoid adding duplicates
+        if (!ytSongsSet.has(ytSong.id)) {
+          matches.push(ytSong);
+          ytSongsSet.add(ytSong.id);
+        }
       }
-    }
-  });
+    });
 
-  postMessage(matches);
-};
+    postMessage(matches);
+  };
+}
+
+export default {};
