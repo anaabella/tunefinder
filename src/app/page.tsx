@@ -27,7 +27,7 @@ function Login() {
     try {
       await initiateGoogleSignIn(auth);
     } catch (error: any) {
-      if (error.code === 'auth/popup-closed-by-user') {
+      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
         console.log('Login popup closed by user.');
         return;
       }
@@ -68,7 +68,7 @@ function RefreshSession() {
         // or we can force it if necessary.
         window.location.reload();
       } catch (error: any) {
-         if (error.code === 'auth/popup-closed-by-user') {
+         if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
           console.log('Login popup closed by user.');
           return;
         }
