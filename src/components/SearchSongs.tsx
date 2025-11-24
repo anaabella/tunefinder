@@ -1,11 +1,12 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from 'next/link';
+import { Firestore, collection, query, where, getDocs } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,26 +16,30 @@ import type { Song } from "@/lib/types";
 import { YouTubeIcon } from "@/components/icons";
 import { Search, Music } from "lucide-react";
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where, addDoc, getDocs } from "firebase/firestore";
-import { samplePlaylists, sampleSongs } from "@/lib/sample-data";
-import { useEffect } from "react";
+import { sampleSongs } from "@/lib/sample-data";
 import { useToast } from "@/hooks/use-toast";
+import { addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 const formSchema = z.object({
   songName: z.string().min(2, { message: "Please enter at least 2 characters." }),
 });
 
-async function seedUserData(firestore: any, userId: string) {
+async function seedUserData(firestore: Firestore, userId: string): Promise<boolean> {
   const songsCollectionRef = collection(firestore, `users/${userId}/songs`);
   const songsSnapshot = await getDocs(songsCollectionRef);
   if (songsSnapshot.empty) {
-    const promises = sampleSongs.map(song => addDoc(songsCollectionRef, song));
+    console.log(`Seeding data for user ${userId}`);
+    const promises = sampleSongs.map(song => {
+      // Use the non-blocking update to avoid permission errors from being swallowed.
+      return addDocumentNonBlocking(songsCollectionRef, song);
+    });
     await Promise.all(promises);
+    return true; // Data was seeded
   }
+  return false; // Data already existed
 }
 
 export function SearchSongs() {
-  const [searchQuery, setSearchQuery] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState('');
   const { user } = useUser();
   const firestore = useFirestore();
@@ -42,18 +47,16 @@ export function SearchSongs() {
 
   useEffect(() => {
     if (user && firestore) {
-      seedUserData(firestore, user.uid).then(() => {
-        toast({
-          title: "Bienvenido de nuevo",
-          description: "Tus playlists y canciones se han cargado.",
-        })
+      seedUserData(firestore, user.uid).then((wasSeeded) => {
+        if (wasSeeded) {
+          toast({
+            title: "¡Bienvenido!",
+            description: "Hemos cargado algunas canciones y playlists de ejemplo para ti.",
+          });
+        }
       }).catch((e) => {
         console.error("Error seeding data: ", e);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "No se pudieron cargar tus canciones.",
-        })
+        // This toast is handled by the global error listener now
       });
     }
   }, [user, firestore, toast]);
