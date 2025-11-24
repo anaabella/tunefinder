@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview Funciones para interactuar con la API de YouTube.
@@ -118,25 +117,16 @@ const getPlaylistItemsFlow = ai.defineFlow(
   }
 );
 
-export async function getPlaylistItems(
-  accessToken: string,
-  playlistId: string
-): Promise<Song[]> {
-  return await getPlaylistItemsFlow({ accessToken, playlistId });
-}
 
-const SearchAllPlaylistsInputSchema = z.object({
-  accessToken: z.string().describe('OAuth2 Access Token'),
-  query: z.string().describe('Search query for song title or artist'),
-});
+const GetAllSongsInputSchema = z.string().describe('OAuth2 Access Token');
 
-const searchAllPlaylistsFlow = ai.defineFlow(
+const getAllSongsFromAllPlaylistsFlow = ai.defineFlow(
   {
-    name: 'searchAllPlaylistsFlow',
-    inputSchema: SearchAllPlaylistsInputSchema,
+    name: 'getAllSongsFromAllPlaylistsFlow',
+    inputSchema: GetAllSongsInputSchema,
     outputSchema: z.array(z.custom<Song>()),
   },
-  async ({ accessToken, query }) => {
+  async (accessToken) => {
     const playlists = await getPlaylistsFlow(accessToken);
 
     const allSongsPromises = playlists.map(async (playlist) => {
@@ -155,22 +145,19 @@ const searchAllPlaylistsFlow = ai.defineFlow(
     const allSongsArrays = await Promise.all(allSongsPromises);
     const allSongs = allSongsArrays.flat();
     
-    const lowerCaseQuery = query.toLowerCase();
+    // Sort results by playlist name, then by title
+    allSongs.sort((a, b) => {
+      if (a.playlistName < b.playlistName) return -1;
+      if (a.playlistName > b.playlistName) return 1;
+      return a.title.localeCompare(b.title);
+    });
 
-    const filteredSongs = allSongs.filter(song => 
-      song.title.toLowerCase().includes(lowerCaseQuery) || 
-      (song.artist && song.artist.toLowerCase().includes(lowerCaseQuery))
-    );
-    
-    // Sort results by playlist name
-    filteredSongs.sort((a, b) => a.playlistName.localeCompare(b.playlistName));
-
-    return filteredSongs;
+    return allSongs;
   }
 );
 
-export async function searchAllPlaylists(accessToken: string, query: string): Promise<Song[]> {
-  return await searchAllPlaylistsFlow({ accessToken, query });
+export async function getAllSongsFromAllPlaylists(accessToken: string): Promise<Song[]> {
+  return await getAllSongsFromAllPlaylistsFlow(accessToken);
 }
 
 
