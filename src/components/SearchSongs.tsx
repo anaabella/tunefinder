@@ -118,31 +118,31 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
   if (isTokenExpired) return <RefreshSession />;
 
   return (
-    <div className="max-w-4xl mx-auto flex flex-col gap-8">
+    <div className="max-w-4xl mx-auto flex flex-col gap-6 md:gap-8">
       <div className="text-center space-y-2">
-        <h2 className="text-3xl md:text-4xl font-bold font-headline tracking-tight">
+        <h2 className="text-2xl md:text-3xl font-bold font-headline tracking-tight">
           Busca en todas tus Playlists
         </h2>
-        <p className="text-muted-foreground text-lg">
+        <p className="text-muted-foreground text-md md:text-lg">
             Escribe para buscar por título o artista. Usa el filtro para acotar la búsqueda a una playlist.
         </p>
       </div>
 
-      <Card className="shadow-lg sticky top-24 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <Card className="shadow-lg sticky top-20 md:top-24 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex flex-col md:flex-row gap-2">
             <div className="relative flex-grow">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input
                 placeholder="Busca por título o artista..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="pl-10 h-12 text-base"
+                className="pl-10 h-11 md:h-12 text-base"
                 autoComplete="off"
               />
             </div>
             <Select value={selectedPlaylist} onValueChange={setSelectedPlaylist}>
-              <SelectTrigger className="h-12 md:w-56">
+              <SelectTrigger className="h-11 md:h-12 w-full md:w-56">
                 <SelectValue placeholder="Filtrar por playlist" />
               </SelectTrigger>
               <SelectContent>

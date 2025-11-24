@@ -34,15 +34,15 @@ interface SongResultsProps {
 
 const SongSkeleton = () => (
   <div className="flex items-center gap-4 p-3 rounded-lg border bg-card text-card-foreground">
-    <Skeleton className="h-16 w-28 rounded-md flex-shrink-0" />
+    <Skeleton className="h-12 w-20 md:h-16 md:w-28 rounded-md flex-shrink-0" />
     <div className="flex-grow min-w-0 space-y-2">
       <Skeleton className="h-4 w-3/4" />
       <Skeleton className="h-4 w-1/2" />
       <Skeleton className="h-3 w-1/3" />
     </div>
-    <div className="flex-shrink-0 flex gap-2">
-      <Skeleton className="h-10 w-10 rounded-full" />
-      <Skeleton className="h-10 w-10 rounded-full" />
+    <div className="flex-shrink-0 flex flex-col md:flex-row gap-1">
+      <Skeleton className="h-8 w-8 rounded-full" />
+      <Skeleton className="h-8 w-8 rounded-full" />
     </div>
   </div>
 );
@@ -204,7 +204,7 @@ export function SongResults({
         </div>
       ) : (
         <>
-          <h3 className="text-2xl font-bold font-headline">
+          <h3 className="text-xl md:text-2xl font-bold font-headline">
             Resultados{' '}
             <span className="text-base font-normal text-muted-foreground">
               ({songs.length} encontrados)
@@ -215,33 +215,35 @@ export function SongResults({
               <div
                 key={song.id}
                 id={`song-${song.id}`}
-                className="flex items-center gap-4 p-3 rounded-lg border bg-card text-card-foreground transition-opacity"
+                className="flex items-center gap-3 md:gap-4 p-2 md:p-3 rounded-lg border bg-card text-card-foreground transition-opacity"
               >
                 {song.thumbnailUrl && (
-                  <div className="aspect-video relative h-16 w-28 rounded-md overflow-hidden flex-shrink-0">
+                  <div className="aspect-video relative h-12 w-20 md:h-16 md:w-28 rounded-md overflow-hidden flex-shrink-0">
                     <Image
                       src={song.thumbnailUrl}
                       alt={`Miniatura de ${song.title}`}
                       fill
                       style={{ objectFit: 'cover' }}
+                      sizes="(max-width: 768px) 80px, 112px"
                     />
                   </div>
                 )}
                 <div className="flex-grow min-w-0">
-                  <p className="truncate font-semibold">{song.title}</p>
+                  <p className="truncate font-semibold text-sm md:text-base">{song.title}</p>
                   <p className="text-sm text-muted-foreground truncate">
                     {song.artist}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground hidden sm:block">
                     En: <span className="font-medium">{song.playlistName}</span>
                   </p>
                 </div>
-                <div className="flex-shrink-0 flex items-center gap-1">
+                <div className="flex-shrink-0 flex items-center gap-0.5">
                   <Button
                       variant="ghost"
                       size="icon"
                       aria-label="Mover canción"
                       onClick={() => handleOpenMoveDialog(song)}
+                      className="h-9 w-9 md:h-10 md:w-10"
                   >
                       <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
                   </Button>
@@ -252,6 +254,7 @@ export function SongResults({
                         size="icon"
                         disabled={deletingId === song.id}
                         aria-label="Eliminar canción"
+                        className="h-9 w-9 md:h-10 md:w-10"
                       >
                         {deletingId === song.id ? (
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-destructive"></div>
@@ -295,11 +298,12 @@ export function SongResults({
       )}
     </div>
     {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-4 mt-6">
+        <div className="flex justify-center items-center gap-2 md:gap-4 mt-6">
             <Button
             onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
             disabled={currentPage === 1}
             variant="outline"
+            size="sm"
             >
             Anterior
             </Button>
@@ -310,6 +314,7 @@ export function SongResults({
             onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
             disabled={currentPage === totalPages}
             variant="outline"
+            size="sm"
             >
             Siguiente
             </Button>

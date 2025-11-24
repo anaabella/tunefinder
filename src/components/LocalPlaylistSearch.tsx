@@ -171,9 +171,9 @@ export function LocalPlaylistSearch() {
   
   if (!user || !accessToken) {
     return (
-        <div className="text-center space-y-2">
-            <h2 className="text-2xl font-bold font-headline tracking-tight">Función no disponible</h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+        <div className="text-center space-y-2 p-4">
+            <h2 className="text-xl md:text-2xl font-bold font-headline tracking-tight">Función no disponible</h2>
+            <p className="text-muted-foreground text-md md:text-lg max-w-2xl mx-auto">
               Debes iniciar sesión con Google para cargar tus canciones de YouTube y compararlas con un archivo local.
             </p>
         </div>
@@ -181,10 +181,10 @@ export function LocalPlaylistSearch() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto flex flex-col gap-8">
+    <div className="max-w-4xl mx-auto flex flex-col gap-6 md:gap-8">
       <div className="text-center space-y-2">
-        <h2 className="text-3xl md:text-4xl font-bold font-headline tracking-tight">Busca en tu Playlist Local</h2>
-        <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+        <h2 className="text-2xl md:text-3xl font-bold font-headline tracking-tight">Busca en tu Playlist Local</h2>
+        <p className="text-muted-foreground text-md md:text-lg max-w-2xl mx-auto">
           Sube un archivo de playlist (.m3u, .m3u8) para encontrar esas canciones en tus playlists de YouTube y gestionarlas.
         </p>
       </div>
@@ -195,14 +195,14 @@ export function LocalPlaylistSearch() {
       >
         <CardContent className="pt-6 text-center cursor-pointer">
           <input {...getInputProps()} />
-          <div className="flex flex-col items-center justify-center gap-4 p-8">
-            <UploadCloud className="h-12 w-12 text-muted-foreground" />
+          <div className="flex flex-col items-center justify-center gap-4 p-4 md:p-8">
+            <UploadCloud className="h-10 w-10 md:h-12 md:w-12 text-muted-foreground" />
             {isDragActive ? (
               <p className="text-primary font-semibold">Suelta el archivo aquí...</p>
             ) : file ? (
-              <p className="font-semibold text-foreground">Archivo seleccionado: <span className="font-normal">{file.name}</span></p>
+              <p className="font-semibold text-foreground text-sm md:text-base">Archivo seleccionado: <span className="font-normal">{file.name}</span></p>
             ) : (
-              <p className="text-muted-foreground">Arrastra y suelta un archivo de playlist, o haz clic para seleccionarlo</p>
+              <p className="text-muted-foreground text-sm md:text-base">Arrastra y suelta un archivo de playlist, o haz clic para seleccionarlo</p>
             )}
             <p className="text-xs text-muted-foreground/80">Formatos soportados: .m3u, .m3u8</p>
           </div>
@@ -225,7 +225,7 @@ export function LocalPlaylistSearch() {
 
       {matchedSongs.length > 0 && (
         <>
-            <Card className="shadow-lg sticky top-24 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <Card className="shadow-lg sticky top-20 md:top-24 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
               <CardContent className="pt-6">
                   <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -233,7 +233,7 @@ export function LocalPlaylistSearch() {
                           placeholder="Busca en los resultados encontrados..." 
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-10 h-12 text-base" 
+                          className="pl-10 h-11 md:h-12 text-base" 
                           autoComplete="off" 
                       />
                   </div>

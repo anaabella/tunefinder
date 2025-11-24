@@ -148,7 +148,7 @@ export default function Home() {
   return (
     <div className="container mx-auto py-8 md:py-12 px-4 h-full">
       <Tabs defaultValue="youtube" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
+        <TabsList className="grid w-full grid-cols-2 max-w-sm mx-auto">
           <TabsTrigger value="youtube">YouTube</TabsTrigger>
           <TabsTrigger value="local">Archivo Local</TabsTrigger>
         </TabsList>
