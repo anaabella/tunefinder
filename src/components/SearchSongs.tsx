@@ -1,22 +1,32 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import Link from 'next/link';
+import Image from 'next/image';
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import type { Song } from "@/lib/types";
-import { YouTubeIcon } from "@/components/icons";
-import { Search, Music } from "lucide-react";
+import { Search, Music, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { searchAllPlaylists } from "@/lib/youtube";
+import { searchAllPlaylists, deletePlaylistItem } from "@/lib/youtube";
 import { useUser } from "@/firebase";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 const formSchema = z.object({
   query: z.string().min(2, { message: "Por favor, introduce al menos 2 caracteres." }),
@@ -30,6 +40,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
   const [songs, setSongs] = useState<Song[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [submittedQuery, setSubmittedQuery] = useState('');
+  const [isDeleting, startDeleteTransition] = useTransition();
   const { toast } = useToast();
   const { user } = useUser();
 
@@ -76,6 +87,36 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
       setIsLoading(false);
     }
   }
+
+  const handleDeleteSong = async (songIdToDelete: string) => {
+    if (!accessToken) {
+      toast({
+        variant: "destructive",
+        title: "Error de autenticación",
+        description: "Se perdió la sesión. Por favor, inicia sesión de nuevo.",
+      });
+      return;
+    }
+    
+    const success = await deletePlaylistItem(accessToken, songIdToDelete);
+
+    if (success) {
+      toast({
+        title: "Canción eliminada",
+        description: "La canción ha sido eliminada de tu playlist de YouTube.",
+      });
+      startDeleteTransition(() => {
+        setSongs((prevSongs) => prevSongs.filter((song) => song.id !== songIdToDelete));
+      });
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Error al eliminar",
+        description: "No se pudo eliminar la canción. Revisa los permisos o inténtalo de nuevo.",
+      });
+    }
+  };
+
 
   return (
     <div className="max-w-4xl mx-auto flex flex-col gap-8">
@@ -129,23 +170,49 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
         <div className="space-y-4">
           <h3 className="text-2xl font-bold font-headline">Resultados <span className="text-base font-normal text-muted-foreground">({songs.length} encontrados para "{submittedQuery}")</span></h3>
           {songs.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {songs.map((song, index) => (
-                <Card key={`${song.id}-${index}`}>
-                  <CardHeader>
-                    <CardTitle className="truncate">{song.title}</CardTitle>
-                    <CardDescription>{song.artist}</CardDescription>
-                  </CardHeader>
-                   <CardContent>
+             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+             {songs.map((song) => (
+                <Card key={song.id} className="flex flex-col overflow-hidden">
+                    {song.thumbnailUrl && (
+                        <div className="aspect-video relative">
+                            <Image 
+                                src={song.thumbnailUrl} 
+                                alt={`Miniatura de ${song.title}`} 
+                                layout="fill" 
+                                objectFit="cover"
+                            />
+                        </div>
+                    )}
+                  <CardHeader className="flex-grow">
+                    <CardTitle className="truncate text-lg">{song.title}</CardTitle>
+                    <p className="text-sm text-muted-foreground">{song.artist}</p>
+                   </CardHeader>
+                   <CardContent className="flex-grow">
                      <p className="text-xs text-muted-foreground">Encontrado en: <span className="font-semibold">{song.playlistName}</span></p>
                    </CardContent>
                   <CardFooter>
-                    <Button asChild variant="outline" className="w-full">
-                      <Link href={`https://www.youtube.com/watch?v=${song.youtubeVideoId}`} target="_blank" rel="noopener noreferrer">
-                        <YouTubeIcon className="h-4 w-4 mr-2" />
-                        Ver en YouTube
-                      </Link>
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" className="w-full" disabled={isDeleting}>
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Eliminar
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta acción no se puede deshacer. Esto eliminará permanentemente la canción <span className="font-semibold">"{song.title}"</span> de tu playlist <span className="font-semibold">"{song.playlistName}"</span> en YouTube.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDeleteSong(song.id)}>
+                            Sí, eliminar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </CardFooter>
                 </Card>
               ))}

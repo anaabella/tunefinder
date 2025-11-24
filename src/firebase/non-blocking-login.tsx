@@ -1,3 +1,4 @@
+
 'use client';
 import {
   Auth,
@@ -9,9 +10,8 @@ import {
 /** Initiate Google sign-in (non-blocking). */
 export function initiateGoogleSignIn(authInstance: Auth): Promise<UserCredential> {
   const provider = new GoogleAuthProvider();
-  // Solicitamos acceso a las playlists del usuario de YouTube de forma explícita.
-  // Esto es crucial para que el usuario pueda dar su consentimiento.
-  provider.addScope('https://www.googleapis.com/auth/youtube.readonly');
+  // Solicitamos acceso completo a YouTube para poder leer y eliminar canciones de playlists.
+  provider.addScope('https://www.googleapis.com/auth/youtube');
   
   // Usar prompt: 'consent' puede ser útil durante el desarrollo para forzar
   // que la pantalla de consentimiento aparezca siempre y verificar los permisos.

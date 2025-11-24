@@ -68,6 +68,7 @@ const getPlaylistItemsFlow = ai.defineFlow(
         title: z.string(),
         artist: z.string(),
         youtubeVideoId: z.string(),
+        thumbnailUrl: z.string(),
       })
     ),
   },
@@ -107,6 +108,7 @@ const getPlaylistItemsFlow = ai.defineFlow(
         title: title,
         artist: videoOwner,
         youtubeVideoId: item.snippet?.resourceId?.videoId || '',
+        thumbnailUrl: item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url || '',
       };
     });
 
@@ -163,4 +165,40 @@ const searchAllPlaylistsFlow = ai.defineFlow(
 
 export async function searchAllPlaylists(accessToken: string, query: string): Promise<Song[]> {
   return await searchAllPlaylistsFlow({ accessToken, query });
+}
+
+
+const DeletePlaylistItemInputSchema = z.object({
+  accessToken: z.string().describe('OAuth2 Access Token'),
+  playlistItemId: z.string().describe('The ID of the playlist item to delete'),
+});
+
+
+const deletePlaylistItemFlow = ai.defineFlow(
+    {
+      name: 'deletePlaylistItemFlow',
+      inputSchema: DeletePlaylistItemInputSchema,
+      outputSchema: z.boolean(),
+    },
+    async ({ accessToken, playlistItemId }) => {
+      const oauth2Client = new google.auth.OAuth2();
+      oauth2Client.setCredentials({ access_token: accessToken });
+  
+      try {
+        await youtube.playlistItems.delete({
+          id: playlistItemId,
+          auth: oauth2Client,
+        });
+        return true;
+      } catch (error) {
+        console.error('Error deleting playlist item:', error);
+        // It might be useful to throw the error or return a more detailed error object
+        // For now, we return false to indicate failure.
+        return false;
+      }
+    }
+  );
+  
+export async function deletePlaylistItem(accessToken: string, playlistItemId: string): Promise<boolean> {
+    return await deletePlaylistItemFlow({ accessToken, playlistItemId });
 }
