@@ -9,7 +9,6 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import type { Song } from '@/lib/types';
 
 // Define el esquema de entrada: el contenido del archivo como un string.
 const ParsePlaylistFileInputSchema = z.string().describe(
@@ -66,22 +65,11 @@ const parsePlaylistFileFlow = ai.defineFlow(
 );
 
 /**
- * Analiza el contenido de un archivo de playlist para extraer las canciones.
+ * Analiza el contenido de un archivo de playlist para extraer los títulos y artistas.
  * @param content El contenido del archivo de playlist como un string.
- * @returns Una promesa que se resuelve en un array de canciones simplificadas.
+ * @returns Una promesa que se resuelve en un array de objetos con título y artista.
  */
 export async function parsePlaylistFile(content: ParsePlaylistFileInput): Promise<ParsePlaylistFileOutput> {
   const result = await parsePlaylistFileFlow(content);
-  // Mapeamos el resultado para que coincida con la estructura de nuestra 'Song' local
-  // aunque sea de forma parcial, para reutilizar componentes.
-  return result.map((song, index) => ({
-    id: `local-${index}-${song.title}`, // ID único local
-    title: song.title,
-    artist: song.artist,
-    playlistId: 'local',
-    playlistName: 'Playlist Local',
-    youtubeVideoId: '',
-    thumbnailUrl: '',
-    publishedAt: new Date().toISOString(),
-  }));
+  return result;
 }
