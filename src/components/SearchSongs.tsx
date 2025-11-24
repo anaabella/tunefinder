@@ -56,10 +56,12 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
         const ignoredPlaylistsStr = localStorage.getItem('ignored-playlists') || '[]';
         const ignoredPlaylistIds = JSON.parse(ignoredPlaylistsStr);
         
+        // Call the server-side flow with just the query
         const results = await searchSongs({ accessToken, query: searchQuery, ignoredPlaylistIds });
         
         setFilteredSongs(results);
       } catch (error: any) {
+        // Check for specific error message indicating token expiration
         if (error.message === 'YOUTUBE_TOKEN_EXPIRED' || (error.cause as any)?.message === 'YOUTUBE_TOKEN_EXPIRED') {
           setIsTokenExpired(true);
           localStorage.removeItem('yt-access-token');
@@ -75,6 +77,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
     });
   }, [user, accessToken, toast, hasSearched]);
   
+  // Debounce effect for search input
   useEffect(() => {
     const handler = setTimeout(() => {
       handleSearch(query);
@@ -85,7 +88,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
     };
   }, [query, handleSearch]);
   
-  // Fetch initial songs when the component mounts with an empty query
+  // Fetch initial songs (all of them) when the component mounts with an empty query
   useEffect(() => {
     handleSearch('');
   // eslint-disable-next-line react-hooks/exhaustive-deps

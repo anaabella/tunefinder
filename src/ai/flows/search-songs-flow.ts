@@ -3,7 +3,7 @@
 /**
  * @fileOverview Flow to search songs based on a query.
  *
- * - searchSongs - A function that filters songs based on a search query.
+ * - searchSongs - A function that fetches all songs and filters them based on a search query on the server.
  * - SearchSongsInput - The input type for the searchSongs function.
  * - SearchSongsOutput - The return type for the searchSongs function.
  */
@@ -42,17 +42,17 @@ const searchSongsFlow = ai.defineFlow(
     outputSchema: SearchSongsOutputSchema,
   },
   async ({ accessToken, query, ignoredPlaylistIds }) => {
-    
+    // Step 1: Fetch all songs from all playlists on the server.
     const allSongs = await getAllSongsFromAllPlaylists(accessToken, ignoredPlaylistIds);
     
+    // Step 2: If the query is empty, return all songs sorted by date.
     if (!query) {
-      // If the query is empty, return all songs sorted by date
       return allSongs.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
     }
     
     const lowerCaseQuery = query.toLowerCase();
 
-    // Perform the filtering logic on the server side.
+    // Step 3: Perform the filtering logic on the server side.
     const filteredSongs = allSongs.filter(
       (song) =>
         song.title.toLowerCase().includes(lowerCaseQuery) ||
@@ -63,6 +63,12 @@ const searchSongsFlow = ai.defineFlow(
   }
 );
 
+/**
+ * Fetches all songs from a user's YouTube playlists and filters them based on a query.
+ * The entire operation runs on the server to avoid freezing the client.
+ * @param input The search input containing the access token and query.
+ * @returns A promise that resolves to an array of filtered songs.
+ */
 export async function searchSongs(
   input: SearchSongsInput
 ): Promise<SearchSongsOutput> {
