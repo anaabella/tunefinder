@@ -131,11 +131,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
           {songs.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {songs.map((song, index) => (
-                <Card 
-                  key={`${song.id}-${index}`} 
-                  className="opacity-0 animate-in fade-in-0 zoom-in-95 duration-500"
-                  style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'forwards' }}
-                >
+                <Card key={`${song.id}-${index}`}>
                   <CardHeader>
                     <CardTitle className="truncate">{song.title}</CardTitle>
                     <CardDescription>{song.artist}</CardDescription>
