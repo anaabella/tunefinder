@@ -132,7 +132,7 @@ const getPlaylistItemsFlow = ai.defineFlow(
       return {
         id: item.id || '',
         playlistId: playlistId,
-        playlistName: '',
+        playlistName: '', // Se llenará más tarde
         title: title,
         artist: videoOwner,
         youtubeVideoId: item.snippet?.resourceId?.videoId || '',
@@ -148,51 +148,47 @@ const getPlaylistItemsFlow = ai.defineFlow(
 
 const GetAllSongsInputSchema = z.object({
   accessToken: z.string().describe('OAuth2 Access Token'),
-  playlistId: z.string().describe('The ID of the playlist to fetch songs from.'),
+  ignoredPlaylistIds: z.array(z.string()).optional(),
 });
 
 
-const getSongsFromPlaylistFlow = ai.defineFlow(
+const getAllSongsFromAllPlaylistsFlow = ai.defineFlow(
   {
-    name: 'getSongsFromPlaylistFlow',
+    name: 'getAllSongsFromAllPlaylistsFlow',
     inputSchema: GetAllSongsInputSchema,
     outputSchema: z.array(z.custom<Song>()),
   },
-  async ({accessToken, playlistId}) => {
+  async ({accessToken, ignoredPlaylistIds}) => {
     try {
-        // Primero, obtenemos los detalles de la playlist para tener su nombre.
-        const oauth2Client = new google.auth.OAuth2();
-        oauth2Client.setCredentials({ access_token: accessToken });
-        const playlistResponse = await youtube.playlists.list({
-            part: ['snippet'],
-            id: [playlistId],
-            auth: oauth2Client,
+      const playlists = await getPlaylistsFlow({ accessToken, ignoredPlaylistIds });
+      let allSongs: Song[] = [];
+
+      for (const playlist of playlists) {
+        const songsFromPlaylist = await getPlaylistItemsFlow({
+          accessToken,
+          playlistId: playlist.id,
         });
 
-        const playlistName = playlistResponse.data.items?.[0]?.snippet?.title || 'Playlist Desconocida';
-
-        const songs = await getPlaylistItemsFlow({
-            accessToken,
-            playlistId: playlistId,
-        });
-
-        // Añadimos el nombre de la playlist a cada canción.
-        return songs.map((song) => ({
-            ...song,
-            playlistName: playlistName,
+        const songsWithPlaylistName = songsFromPlaylist.map(song => ({
+          ...song,
+          playlistName: playlist.name,
         }));
+        allSongs = allSongs.concat(songsWithPlaylistName);
+      }
+      return allSongs;
+
     } catch (error: any) {
-        if (error.code === 401 || (error.response?.data?.error?.message.includes('Invalid Credentials'))) {
-            throw new Error('YOUTUBE_TOKEN_EXPIRED');
+        if (error instanceof Error && error.message === 'YOUTUBE_TOKEN_EXPIRED') {
+            throw error; // Re-throw a la capa superior
         }
-        throw error;
+        console.error('Error fetching all songs:', error);
+        throw new Error('Failed to fetch songs from playlists.');
     }
   }
 );
 
-// Nueva función para obtener canciones de UNA playlist
-export async function getSongsFromPlaylist(accessToken: string, playlistId: string): Promise<Song[]> {
-  return await getSongsFromPlaylistFlow({ accessToken, playlistId });
+export async function getAllSongsFromAllPlaylists(accessToken: string, ignoredPlaylistIds?: string[]): Promise<Song[]> {
+    return await getAllSongsFromAllPlaylistsFlow({ accessToken, ignoredPlaylistIds });
 }
 
 
@@ -224,7 +220,7 @@ const deletePlaylistItemFlow = ai.defineFlow(
         throw new Error(`Error de la API de YouTube: ${errorMessage}`);
       }
     }
-  );
+);
   
 export async function deletePlaylistItem(accessToken: string, playlistItemId: string): Promise<boolean> {
     return await deletePlaylistItemFlow({ accessToken, playlistItemId });

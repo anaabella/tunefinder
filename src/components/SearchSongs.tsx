@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { Song } from "@/lib/types";
 import { Search, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { getSongsFromPlaylist, deletePlaylistItem, getPlaylists } from "@/lib/youtube"; // Cambiado a getSongsFromPlaylist
+import { getAllSongsFromAllPlaylists, deletePlaylistItem } from "@/lib/youtube";
 import { useUser } from "@/firebase";
 import {
   AlertDialog,
@@ -21,10 +21,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { YouTubeIcon } from "./icons";
-import { Playlists } from "./Playlists";
 
 interface SearchSongsProps {
   accessToken: string | null;
@@ -48,37 +46,53 @@ function RefreshSession() {
     );
 }
 
-// Este componente ahora maneja la lógica de carga y búsqueda
-// para una playlist seleccionada.
-function PlaylistSongSearcher({ accessToken, playlistId }: { accessToken: string, playlistId: string }) {
+export function SearchSongs({ accessToken }: SearchSongsProps) {
   const [songs, setSongs] = useState<Song[]>([]);
   const [filteredSongs, setFilteredSongs] = useState<Song[]>([]);
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [isTokenExpired, setIsTokenExpired] = useState(false);
   const { toast } = useToast();
+  const { user } = useUser();
 
+  // Effect to fetch all songs from all playlists
   useEffect(() => {
-    const fetchSongs = async () => {
-      if (!playlistId || !accessToken) return;
+    if (!user || !accessToken) {
+      setIsLoading(false);
+      return;
+    }
+
+    const fetchAllSongs = async () => {
       setIsLoading(true);
+      setIsTokenExpired(false);
       try {
-        const playlistSongs = await getSongsFromPlaylist(accessToken, playlistId);
-        setSongs(playlistSongs);
-        setFilteredSongs(playlistSongs.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()));
+        const ignoredPlaylistsStr = localStorage.getItem('ignored-playlists') || '[]';
+        const ignoredPlaylistIds = JSON.parse(ignoredPlaylistsStr);
+        
+        const results = await getAllSongsFromAllPlaylists(accessToken, ignoredPlaylistIds);
+        setSongs(results);
+        setFilteredSongs(results.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()));
       } catch (error: any) {
-         toast({
-            variant: "destructive",
-            title: "Error al cargar las canciones",
-            description: error.message || "No se pudieron obtener las canciones de la playlist.",
-          });
+        if (error.message === 'YOUTUBE_TOKEN_EXPIRED') {
+            setIsTokenExpired(true);
+            localStorage.removeItem('yt-access-token');
+        } else {
+            toast({
+              variant: "destructive",
+              title: "Error al cargar tus canciones",
+              description: error.message || "No se pudieron obtener las canciones de tus playlists.",
+            });
+        }
       } finally {
         setIsLoading(false);
       }
     };
-    fetchSongs();
-  }, [playlistId, accessToken, toast]);
 
+    fetchAllSongs();
+  }, [user, accessToken, toast]);
+
+  // Effect for filtering songs based on query
   useEffect(() => {
     const lowerCaseQuery = query.toLowerCase();
     
@@ -115,8 +129,6 @@ function PlaylistSongSearcher({ accessToken, playlistId }: { accessToken: string
           description: "La canción ha sido eliminada de tu playlist de YouTube.",
         });
         setSongs((prev) => prev.filter((song) => song.id !== songIdToDelete));
-        setFilteredSongs((prev) => prev.filter((song) => song.id !== songIdToDelete));
-        setIsDeleting(null);
         return true;
       } else {
         throw new Error("No se pudo eliminar la canción. Revisa los permisos o inténtalo de nuevo.");
@@ -127,175 +139,117 @@ function PlaylistSongSearcher({ accessToken, playlistId }: { accessToken: string
         title: "Error al eliminar",
         description: error.message || "No se pudo eliminar la canción.",
       });
-      setIsDeleting(null);
       return false;
+    } finally {
+        setIsDeleting(null);
     }
   };
-
-  if (isLoading) {
-    return (
-        <div className="flex justify-center items-center p-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <p className="ml-4 text-muted-foreground">Cargando canciones...</p>
-        </div>
-      );
-  }
-
-  return (
-    <div className="flex flex-col gap-8">
-        <Card className="shadow-lg sticky top-24 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <CardContent className="pt-6">
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input 
-                        placeholder="Busca en esta playlist..." 
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        className="pl-10 h-12 text-base" 
-                        autoComplete="off" 
-                    />
-                </div>
-            </CardContent>
-        </Card>
-         <div className="space-y-4">
-          <h3 className="text-2xl font-bold font-headline">Resultados <span className="text-base font-normal text-muted-foreground">({filteredSongs.length} encontrados)</span></h3>
-          {filteredSongs.length > 0 ? (
-             <div className="flex flex-col gap-3">
-             {filteredSongs.map((song) => (
-                <div key={song.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card text-card-foreground">
-                    {song.thumbnailUrl && (
-                        <div className="aspect-video relative h-16 w-28 rounded-md overflow-hidden flex-shrink-0">
-                            <Image 
-                                src={song.thumbnailUrl} 
-                                alt={`Miniatura de ${song.title}`} 
-                                fill
-                                style={{ objectFit: 'cover' }}
-                            />
-                        </div>
-                    )}
-                  <div className="flex-grow min-w-0">
-                    <p className="truncate font-semibold">{song.title}</p>
-                    <p className="text-sm text-muted-foreground truncate">{song.artist}</p>
-                    <p className="text-xs text-muted-foreground">En: <span className="font-medium">{song.playlistName}</span></p>
-                   </div>
-                  <div className="flex-shrink-0">
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" disabled={isDeleting === song.id} aria-label="Eliminar canción">
-                          {isDeleting === song.id ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-destructive"></div>
-                          ) : (
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          )}
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Esta acción no se puede deshacer. Esto eliminará permanentemente la canción <span className="font-semibold">"{song.title}"</span> de tu playlist <span className="font-semibold">"{song.playlistName}"</span> en YouTube.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction 
-                            onClick={async (e) => {
-                                e.preventDefault();
-                                const deleted = await handleDeleteSong(song.id);
-                                if (!deleted) {
-                                  e.preventDefault();
-                                }
-                            }}
-                          >
-                            Sí, eliminar
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-10 border-2 border-dashed rounded-lg">
-              <p className="text-muted-foreground">No se encontraron canciones que coincidan con tu búsqueda.</p>
-            </div>
-          )}
-        </div>
-    </div>
-  );
-}
-
-
-export function SearchSongs({ accessToken }: SearchSongsProps) {
-  const [playlists, setPlaylists] = useState<any[]>([]);
-  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isTokenExpired, setIsTokenExpired] = useState(false);
-  const { toast } = useToast();
-  const { user } = useUser();
-
-  // Effect to fetch all playlists once on component mount
-  useEffect(() => {
-    if (!user || !accessToken) {
-      setIsLoading(false);
-      return;
-    }
-
-    const fetchPlaylists = async () => {
-      setIsLoading(true);
-      setIsTokenExpired(false);
-      try {
-        const ignoredPlaylistsStr = localStorage.getItem('ignored-playlists') || '[]';
-        const ignoredPlaylistIds = JSON.parse(ignoredPlaylistsStr);
-
-        const results = await getPlaylists(accessToken, ignoredPlaylistIds);
-        setPlaylists(results);
-      } catch (error: any) {
-        if (error.message === 'YOUTUBE_TOKEN_EXPIRED') {
-            setIsTokenExpired(true);
-            localStorage.removeItem('yt-access-token');
-        } else {
-            toast({
-              variant: "destructive",
-              title: "Error al cargar tus playlists",
-              description: error.message || "No se pudieron obtener las playlists.",
-            });
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchPlaylists();
-  }, [user, accessToken, toast]);
-
+  
   if (isTokenExpired) return <RefreshSession />;
 
   if (isLoading) {
     return (
       <div className="flex justify-center items-center p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        <p className="ml-4 text-muted-foreground">Cargando tus playlists...</p>
+        <p className="ml-4 text-muted-foreground">Cargando todas tus canciones...</p>
       </div>
     );
   }
-  
-  const selectedPlaylist = playlists.find(p => p.id === selectedPlaylistId);
 
   return (
     <div className="max-w-4xl mx-auto flex flex-col gap-8">
-       <Playlists 
-            initialPlaylists={playlists} 
-            onPlaylistSelected={setSelectedPlaylistId} 
-       />
-
-       {selectedPlaylist && accessToken && (
-        <PlaylistSongSearcher 
-            accessToken={accessToken}
-            playlistId={selectedPlaylist.id}
-        />
-       )}
+      <div className="text-center space-y-2">
+        <h2 className="text-3xl md:text-4xl font-bold font-headline tracking-tight">Busca en todas tus Playlists</h2>
+        <p className="text-muted-foreground text-lg">
+          Has encontrado {songs.length} canciones en total. ¡Usa la barra de abajo para buscar!
+        </p>
+      </div>
+        
+      <Card className="shadow-lg sticky top-24 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <CardContent className="pt-6">
+              <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input 
+                      placeholder="Busca por título o artista en todas tus playlists..." 
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      className="pl-10 h-12 text-base" 
+                      autoComplete="off" 
+                  />
+              </div>
+          </CardContent>
+      </Card>
+      <div className="space-y-4">
+        <h3 className="text-2xl font-bold font-headline">Resultados <span className="text-base font-normal text-muted-foreground">({filteredSongs.length} encontrados)</span></h3>
+        {filteredSongs.length > 0 ? (
+           <div className="flex flex-col gap-3">
+           {filteredSongs.map((song) => (
+              <div key={song.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card text-card-foreground">
+                  {song.thumbnailUrl && (
+                      <div className="aspect-video relative h-16 w-28 rounded-md overflow-hidden flex-shrink-0">
+                          <Image 
+                              src={song.thumbnailUrl} 
+                              alt={`Miniatura de ${song.title}`} 
+                              fill
+                              style={{ objectFit: 'cover' }}
+                          />
+                      </div>
+                  )}
+                <div className="flex-grow min-w-0">
+                  <p className="truncate font-semibold">{song.title}</p>
+                  <p className="text-sm text-muted-foreground truncate">{song.artist}</p>
+                  <p className="text-xs text-muted-foreground">En: <span className="font-medium">{song.playlistName}</span></p>
+                 </div>
+                <div className="flex-shrink-0">
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon" disabled={isDeleting === song.id} aria-label="Eliminar canción">
+                        {isDeleting === song.id ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-destructive"></div>
+                        ) : (
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        )}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta acción no se puede deshacer. Esto eliminará permanentemente la canción <span className="font-semibold">"{song.title}"</span> de tu playlist <span className="font-semibold">"{song.playlistName}"</span> en YouTube.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={async (e) => {
+                              const closeDialog = () => {
+                                  const cancelButton = e.currentTarget.parentElement?.querySelector('button');
+                                  if (cancelButton) cancelButton.click();
+                              }
+                              e.preventDefault();
+                              const deleted = await handleDeleteSong(song.id);
+                              if (deleted) {
+                                closeDialog();
+                              }
+                          }}
+                        >
+                          Sí, eliminar
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-10 border-2 border-dashed rounded-lg">
+            <p className="text-muted-foreground">No se encontraron canciones que coincidan con tu búsqueda.</p>
+            {query.length > 0 && <p className="text-sm text-muted-foreground/80">Intenta con otro término.</p>}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+
