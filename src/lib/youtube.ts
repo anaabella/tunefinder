@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Funciones para interactuar con la API de YouTube.
@@ -32,7 +33,7 @@ const getPlaylistsFlow = ai.defineFlow(
       part: ['snippet', 'contentDetails'],
       mine: true,
       maxResults: 50,
-      auth: oauth2Client, // Usar la autenticación del usuario
+      auth: oauth2Client,
     });
 
     const playlists =
@@ -118,4 +119,48 @@ export async function getPlaylistItems(
   playlistId: string
 ): Promise<Song[]> {
   return await getPlaylistItemsFlow({ accessToken, playlistId });
+}
+
+const SearchAllPlaylistsInputSchema = z.object({
+  accessToken: z.string().describe('OAuth2 Access Token'),
+  query: z.string().describe('Search query for song title or artist'),
+});
+
+const searchAllPlaylistsFlow = ai.defineFlow(
+  {
+    name: 'searchAllPlaylistsFlow',
+    inputSchema: SearchAllPlaylistsInputSchema,
+    outputSchema: z.array(z.custom<Song>()),
+  },
+  async ({ accessToken, query }) => {
+    const playlists = await getPlaylistsFlow(accessToken);
+
+    const allSongsPromises = playlists.map(async (playlist) => {
+      const songs = await getPlaylistItemsFlow({
+        accessToken,
+        playlistId: playlist.id,
+      });
+      // Add playlist name to each song
+      return songs.map((song) => ({
+        ...song,
+        playlistName: playlist.name,
+      }));
+    });
+
+    const allSongsArrays = await Promise.all(allSongsPromises);
+    const allSongs = allSongsArrays.flat();
+    
+    const lowerCaseQuery = query.toLowerCase();
+
+    const filteredSongs = allSongs.filter(song => 
+      song.title.toLowerCase().includes(lowerCaseQuery) || 
+      (song.artist && song.artist.toLowerCase().includes(lowerCaseQuery))
+    );
+
+    return filteredSongs;
+  }
+);
+
+export async function searchAllPlaylists(accessToken: string, query: string): Promise<Song[]> {
+  return await searchAllPlaylistsFlow({ accessToken, query });
 }

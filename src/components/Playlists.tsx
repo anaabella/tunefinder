@@ -63,8 +63,6 @@ export function Playlists({ initialPlaylists, accessToken }: PlaylistsProps) {
           </SelectContent>
         </Select>
       </div>
-
-      {selectedPlaylist && accessToken && <SearchSongs playlist={selectedPlaylist} accessToken={accessToken} />}
     </div>
   );
 }

@@ -11,23 +11,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import type { Song, Playlist } from "@/lib/types";
+import type { Song } from "@/lib/types";
 import { YouTubeIcon } from "@/components/icons";
 import { Search, Music } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { getPlaylistItems } from "@/lib/youtube";
+import { searchAllPlaylists } from "@/lib/youtube";
 import { useAuth } from "@/firebase";
 
 const formSchema = z.object({
-  songName: z.string().min(2, { message: "Por favor, introduce al menos 2 caracteres." }),
+  query: z.string().min(2, { message: "Por favor, introduce al menos 2 caracteres." }),
 });
 
 interface SearchSongsProps {
-  playlist: Playlist;
   accessToken: string;
 }
 
-export function SearchSongs({ playlist, accessToken }: SearchSongsProps) {
+export function SearchSongs({ accessToken }: SearchSongsProps) {
   const [songs, setSongs] = useState<Song[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [submittedQuery, setSubmittedQuery] = useState('');
@@ -37,7 +36,7 @@ export function SearchSongs({ playlist, accessToken }: SearchSongsProps) {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { songName: "" },
+    defaultValues: { query: "" },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -59,18 +58,13 @@ export function SearchSongs({ playlist, accessToken }: SearchSongsProps) {
         return;
     }
 
-    setSubmittedQuery(values.songName);
+    setSubmittedQuery(values.query);
     setIsLoading(true);
     setSongs([]);
 
     try {
-      const allItems = await getPlaylistItems(accessToken, playlist.id);
-      const filteredSongs = allItems.filter(song => 
-        song.title.toLowerCase().includes(values.songName.toLowerCase()) || 
-        (song.artist && song.artist.toLowerCase().includes(values.songName.toLowerCase()))
-      );
-      
-      setSongs(filteredSongs);
+      const results = await searchAllPlaylists(accessToken, values.query);
+      setSongs(results);
 
     } catch (error: any) {
        toast({
@@ -84,38 +78,41 @@ export function SearchSongs({ playlist, accessToken }: SearchSongsProps) {
   }
 
   return (
-    <div className="max-w-3xl mx-auto flex flex-col gap-8">
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle>Buscar en: {playlist.name}</CardTitle>
-          <CardDescription>Busca una canción por su nombre o artista en esta playlist.</CardDescription>
-        </CardHeader>
-        <CardContent>
+    <div className="max-w-4xl mx-auto flex flex-col gap-8">
+        <div className="text-center space-y-2">
+            <h2 className="text-3xl md:text-4xl font-bold font-headline tracking-tight">Busca en tu Música</h2>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+                Escribe el nombre de una canción o artista para encontrarlo en todas tus playlists de YouTube.
+            </p>
+        </div>
+
+      <Card className="shadow-lg sticky top-24 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <CardContent className="pt-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col sm:flex-row items-start gap-4">
               <FormField
                 control={form.control}
-                name="songName"
+                name="query"
                 render={({ field }) => (
                   <FormItem className="w-full">
-                    <FormLabel className="sr-only">Nombre de la canción</FormLabel>
+                    <FormLabel className="sr-only">Canción o Artista</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Music className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <Input placeholder="p. ej. Bohemian Rhapsody" {...field} className="pl-10" autoComplete="off" />
+                        <Input placeholder="p. ej. Bohemian Rhapsody, Queen..." {...field} className="pl-10 h-12 text-base" autoComplete="off" />
                       </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <Button type="submit" disabled={isLoading} className="w-full sm:w-auto flex-shrink-0">
+              <Button type="submit" disabled={isLoading} className="w-full sm:w-auto flex-shrink-0 h-12">
                 {isLoading ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-foreground mr-2"></div>
                     Buscando...
                   </>
-                ) : <><Search className="h-4 w-4 mr-2" /> Buscar</>}
+                ) : <><Search className="h-5 w-5 mr-2" /> Buscar</>}
               </Button>
             </form>
           </Form>
@@ -132,17 +129,20 @@ export function SearchSongs({ playlist, accessToken }: SearchSongsProps) {
         <div className="space-y-4">
           <h3 className="text-2xl font-bold font-headline">Resultados <span className="text-base font-normal text-muted-foreground">({songs.length} encontrados para "{submittedQuery}")</span></h3>
           {songs.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {songs.map((song, index) => (
                 <Card 
-                  key={song.id} 
+                  key={`${song.id}-${index}`} 
                   className="opacity-0 animate-in fade-in-0 zoom-in-95 duration-500"
-                  style={{ animationDelay: `${index * 75}ms`, animationFillMode: 'forwards' }}
+                  style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'forwards' }}
                 >
                   <CardHeader>
                     <CardTitle className="truncate">{song.title}</CardTitle>
                     <CardDescription>{song.artist}</CardDescription>
                   </CardHeader>
+                   <CardContent>
+                     <p className="text-xs text-muted-foreground">Encontrado en: <span className="font-semibold">{song.playlistName}</span></p>
+                   </CardContent>
                   <CardFooter>
                     <Button asChild variant="outline" className="w-full">
                       <Link href={`https://www.youtube.com/watch?v=${song.youtubeVideoId}`} target="_blank" rel="noopener noreferrer">
