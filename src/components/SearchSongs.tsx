@@ -11,7 +11,7 @@ import type { Song } from "@/lib/types";
 import { Search, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getAllSongsFromAllPlaylists, deletePlaylistItem } from "@/lib/youtube";
-import { useUser, useAuth } from "@/firebase";
+import { useUser } from "@/firebase";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,43 +23,27 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { initiateGoogleSignIn } from "@/firebase/non-blocking-login";
 import { YouTubeIcon } from "./icons";
 
 interface SearchSongsProps {
   accessToken: string | null;
 }
 
-function ExpiredTokenLogin() {
-    const auth = useAuth();
-    const { toast } = useToast();
-
-    const handleLogin = async () => {
-      try {
-        await initiateGoogleSignIn(auth);
-        // On successful login, the page will reload or the parent component will re-fetch data.
-      } catch (error: any) {
-         if (error.code === 'auth/popup-closed-by-user') {
-          console.log('Login popup closed by user.');
-          return;
-        }
-        console.error('Error durante el inicio de sesión:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Error de inicio de sesión',
-          description: error.message || 'No se pudo completar el inicio de sesión con Google.',
-        });
-      }
+function RefreshSession() {
+    // This component is now primarily shown from the main page, but kept here as fallback.
+    // The onClick handler forces a reload to ensure the new token is picked up by page.tsx
+    const handleLogin = () => {
+        window.location.reload();
     };
   
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-8 border-2 border-dashed rounded-lg">
         <h2 className="text-2xl font-bold">Tu sesión de YouTube ha caducado</h2>
         <p className="text-muted-foreground">
-          Para continuar, por favor inicia sesión de nuevo para refrescar tu permiso.
+          Para continuar, por favor refresca la página. Si el problema persiste, inicia sesión de nuevo.
         </p>
         <Button onClick={handleLogin}>
-          <YouTubeIcon className="mr-2 h-4 w-4" /> Refrescar Sesión con Google
+          <YouTubeIcon className="mr-2 h-4 w-4" /> Refrescar Página
         </Button>
       </div>
     );
@@ -190,7 +174,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
         </CardContent>
       </Card>
       
-      {isTokenExpired && <ExpiredTokenLogin />}
+      {isTokenExpired && <RefreshSession />}
 
       {isLoading && (
         <div className="flex justify-center items-center p-8">
