@@ -19,17 +19,20 @@ function Login() {
     try {
       await initiateGoogleSignIn(auth);
     } catch (error: any) {
-      console.error('Error durante el inicio de sesión:', error);
-      // Only show a toast if it's not a user-cancelled popup
-      if (error.code !== 'auth/popup-closed-by-user') {
-        toast({
-          variant: 'destructive',
-          title: 'Error de inicio de sesión',
-          description:
-            error.message ||
-            'No se pudo completar el inicio de sesión con Google.',
-        });
+      // Don't log "popup-closed-by-user" as an error. It's a normal user action.
+      if (error.code === 'auth/popup-closed-by-user') {
+        console.log('Login popup closed by user.');
+        return;
       }
+      
+      console.error('Error durante el inicio de sesión:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error de inicio de sesión',
+        description:
+          error.message ||
+          'No se pudo completar el inicio de sesión con Google.',
+      });
     }
   };
 
