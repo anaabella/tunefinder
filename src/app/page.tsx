@@ -37,7 +37,7 @@ export default function Home() {
 
   return (
     <div className="container mx-auto py-8 md:py-12 px-4 h-full">
-      {!user ? <Login /> : <SearchSongs />}
+      {!user ? <div className="text-center"><h2 className="text-2xl font-bold">Por favor, inicia sesión para continuar.</h2></div> : <SearchSongs />}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { Music2 } from 'lucide-react';
 import { FirebaseClientProvider } from '@/firebase';
+import { UserAuth } from '@/components/UserAuth';
 
 export const metadata: Metadata = {
   title: 'TuneFinder',
@@ -24,9 +25,12 @@ export default function RootLayout({
       <body className="font-body antialiased min-h-screen flex flex-col">
         <FirebaseClientProvider>
           <header className="py-4 px-4 md:px-8 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-            <div className="container mx-auto flex items-center gap-3">
-              <Music2 className="text-accent h-6 w-6" />
-              <h1 className="text-xl font-bold font-headline">TuneFinder</h1>
+            <div className="container mx-auto flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Music2 className="text-accent h-6 w-6" />
+                <h1 className="text-xl font-bold font-headline">TuneFinder</h1>
+              </div>
+              <UserAuth />
             </div>
           </header>
           <main className="flex-grow">
