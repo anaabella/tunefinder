@@ -6,7 +6,6 @@ import { initiateGoogleSignIn } from '@/firebase/non-blocking-login';
 import { Button } from '@/components/ui/button';
 import { Playlists } from '@/components/Playlists';
 import { YouTubeIcon } from '@/components/icons';
-import { GoogleAuthProvider, getAuth, signInWithCredential } from 'firebase/auth';
 import { useState, useEffect } from 'react';
 import { getPlaylists } from '@/lib/youtube';
 import type { Playlist } from '@/lib/types';
@@ -21,13 +20,16 @@ function Login() {
       await initiateGoogleSignIn(auth);
     } catch (error: any) {
       console.error('Error durante el inicio de sesión:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error de inicio de sesión',
-        description:
-          error.message ||
-          'No se pudo completar el inicio de sesión con Google.',
-      });
+      // Only show a toast if it's not a user-cancelled popup
+      if (error.code !== 'auth/popup-closed-by-user') {
+        toast({
+          variant: 'destructive',
+          title: 'Error de inicio de sesión',
+          description:
+            error.message ||
+            'No se pudo completar el inicio de sesión con Google.',
+        });
+      }
     }
   };
 
@@ -45,22 +47,26 @@ function Login() {
   );
 }
 
-// Helper function to get the access token from the credential result
-const getAccessTokenFromCredential = (user: any): string | null => {
-  if (user && user.credential && 'accessToken' in user.credential) {
-    return (user.credential as any).accessToken;
-  }
-  return null;
-};
-
 
 export default function Home() {
   const { user, isUserLoading } = useUser();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [isLoadingPlaylists, setIsLoadingPlaylists] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const auth = useAuth();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (user) {
+      const storedToken = sessionStorage.getItem('yt-access-token');
+      if (storedToken) {
+        setAccessToken(storedToken);
+      }
+    } else {
+      // Clear token if user logs out
+      setAccessToken(null);
+      sessionStorage.removeItem('yt-access-token');
+    }
+  }, [user]);
 
   useEffect(() => {
     const fetchPlaylists = async () => {
@@ -76,8 +82,11 @@ export default function Home() {
             title: 'Error al cargar Playlists',
             description:
               error.message ||
-              'No se pudieron cargar tus playlists de YouTube. Asegúrate de tener la API de YouTube habilitada.',
+              'No se pudieron cargar tus playlists de YouTube. Intenta cerrar y abrir sesión de nuevo.',
           });
+          // Possible token expiration, clear it to force re-login flow if needed
+          sessionStorage.removeItem('yt-access-token');
+          setAccessToken(null);
         } finally {
           setIsLoadingPlaylists(false);
         }
@@ -86,75 +95,6 @@ export default function Home() {
 
     fetchPlaylists();
   }, [user, accessToken, toast]);
-
-   useEffect(() => {
-    if (user) {
-      // This is a bit of a trick to get a fresh access token.
-      // Firebase doesn't expose a simple "get me the latest oauth token" method.
-      // We force a re-authentication with the existing provider data.
-      const getFreshToken = async () => {
-        if (auth.currentUser) {
-           try {
-            const provider = new GoogleAuthProvider();
-            provider.addScope('https://www.googleapis.com/auth/youtube.readonly');
-            
-            const result = await auth.currentUser.linkWithRedirect(provider);
-            // This won't complete here, it will redirect. The token will be available after redirect.
-            // A more complex setup with getRedirectResult is needed for a seamless flow.
-            // For now, let's try a simpler approach by re-authenticating on load if no token.
-
-            const idToken = await auth.currentUser.getIdToken(true);
-            const credential = GoogleAuthProvider.credential(idToken);
-            
-            // Re-authenticating is not ideal but can sometimes refresh the token.
-            const tempUser = await signInWithCredential(auth, credential);
-            const token = getAccessTokenFromCredential(tempUser);
-
-            if (token) {
-              setAccessToken(token);
-            } else {
-               // Fallback for when re-auth doesn't provide the token easily
-               // This is a key challenge in client-side OAuth token management
-               const storedToken = sessionStorage.getItem('yt-access-token');
-               if (storedToken) {
-                 setAccessToken(storedToken);
-               } else {
-                  console.warn('No se pudo obtener el token de acceso. La carga de playlists puede fallar.');
-               }
-            }
-          } catch(error: any) {
-             if (error.code === 'auth/credential-already-in-use') {
-                // This is expected if the user is already linked. We can try to proceed.
-                console.log('Credential already in use, trying to get token from existing user.');
-                const storedToken = sessionStorage.getItem('yt-access-token');
-                if (storedToken) setAccessToken(storedToken);
-
-             } else if (error.code === 'auth/requires-recent-login') {
-                toast({
-                    variant: 'destructive',
-                    title: 'Se requiere un nuevo inicio de sesión',
-                    description: 'Por seguridad, necesitas volver a iniciar sesión para acceder a YouTube.',
-                });
-             } else {
-                console.error("Error getting fresh token:", error);
-                toast({
-                  variant: 'destructive',
-                  title: 'Error de Autenticación',
-                  description: 'No se pudo obtener el permiso para acceder a YouTube. Intenta cerrar y abrir sesión.',
-                });
-             }
-          }
-        }
-      };
-
-      const storedToken = sessionStorage.getItem('yt-access-token');
-      if (storedToken) {
-        setAccessToken(storedToken);
-      } else {
-        getFreshToken();
-      }
-    }
-  }, [user, auth, toast]);
 
 
   if (isUserLoading) {
