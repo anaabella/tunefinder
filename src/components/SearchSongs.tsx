@@ -16,50 +16,47 @@ import type { Song } from "@/lib/types";
 import { YouTubeIcon } from "@/components/icons";
 import { Search, Music } from "lucide-react";
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { sampleSongs } from "@/lib/sample-data";
 import { useToast } from "@/hooks/use-toast";
 import { addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { getYoutubePlaylists } from "@/ai/flows/get-youtube-playlists";
 
 const formSchema = z.object({
   songName: z.string().min(2, { message: "Please enter at least 2 characters." }),
 });
-
-async function seedUserData(firestore: Firestore, userId: string): Promise<boolean> {
-  const songsCollectionRef = collection(firestore, `users/${userId}/songs`);
-  const songsSnapshot = await getDocs(songsCollectionRef);
-  if (songsSnapshot.empty) {
-    console.log(`Seeding data for user ${userId}`);
-    const promises = sampleSongs.map(song => {
-      // Use the non-blocking update to avoid permission errors from being swallowed.
-      return addDocumentNonBlocking(songsCollectionRef, song);
-    });
-    await Promise.all(promises);
-    return true; // Data was seeded
-  }
-  return false; // Data already existed
-}
 
 export function SearchSongs() {
   const [submittedQuery, setSubmittedQuery] = useState('');
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const [playlists, setPlaylists] = useState<any[]>([]);
+  const [isLoadingPlaylists, setIsLoadingPlaylists] = useState(true);
 
   useEffect(() => {
-    if (user && firestore) {
-      seedUserData(firestore, user.uid).then((wasSeeded) => {
-        if (wasSeeded) {
+    async function fetchPlaylists() {
+      if (user) {
+        setIsLoadingPlaylists(true);
+        try {
+          const fetchedPlaylists = await getYoutubePlaylists();
+          setPlaylists(fetchedPlaylists);
           toast({
-            title: "¡Bienvenido!",
-            description: "Hemos cargado algunas canciones y playlists de ejemplo para ti.",
+            title: "Playlists cargadas",
+            description: "Hemos cargado tus playlists de YouTube.",
           });
+        } catch (error) {
+          console.error("Error fetching playlists: ", error);
+          toast({
+            variant: "destructive",
+            title: "Error al cargar playlists",
+            description: "No se pudieron cargar tus playlists de YouTube. Asegúrate de haber concedido los permisos necesarios.",
+          });
+        } finally {
+          setIsLoadingPlaylists(false);
         }
-      }).catch((e) => {
-        console.error("Error seeding data: ", e);
-        // This toast is handled by the global error listener now
-      });
+      }
     }
-  }, [user, firestore, toast]);
+    fetchPlaylists();
+  }, [user, toast]);
 
   const songsQuery = useMemoFirebase(() => {
     if (!user || !firestore || !submittedQuery) return null;
@@ -126,6 +123,13 @@ export function SearchSongs() {
           </Form>
         </CardContent>
       </Card>
+      
+      {isLoadingPlaylists && (
+        <div className="flex justify-center items-center p-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <p className="ml-4 text-muted-foreground">Cargando tus playlists...</p>
+        </div>
+      )}
 
       {submittedQuery && isLoading && (
         <div className="flex justify-center items-center p-8">
