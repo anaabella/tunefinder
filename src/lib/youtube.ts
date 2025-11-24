@@ -196,11 +196,11 @@ const deletePlaylistItemFlow = ai.defineFlow(
           auth: oauth2Client,
         });
         return true;
-      } catch (error) {
-        console.error('Error deleting playlist item:', error);
-        // Throw the error so it can be caught by the calling function
-        // and displayed to the user.
-        throw error;
+      } catch (error: any) {
+        console.error('Error detallado de la API de YouTube al eliminar:', JSON.stringify(error, null, 2));
+        // Propagate the specific error message from the YouTube API
+        const errorMessage = error?.response?.data?.error?.message || error.message || 'Error desconocido de la API.';
+        throw new Error(`Error de la API de YouTube: ${errorMessage}`);
       }
     }
   );
