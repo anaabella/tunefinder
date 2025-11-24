@@ -1,50 +1,39 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from 'next/link';
-import { Firestore, collection, query, where, getDocs } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import type { Song } from "@/lib/types";
+import type { Song, Playlist } from "@/lib/types";
 import { YouTubeIcon } from "@/components/icons";
 import { Search, Music } from "lucide-react";
-import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
-
+import { getPlaylistItems } from "@/lib/youtube";
+import { useAuth } from "@/firebase";
+import { GoogleAuthProvider } from "firebase/auth";
 
 const formSchema = z.object({
-  songName: z.string().min(2, { message: "Please enter at least 2 characters." }),
+  songName: z.string().min(2, { message: "Por favor, introduce al menos 2 caracteres." }),
 });
 
-export function SearchSongs() {
-  const [submittedQuery, setSubmittedQuery] = useState('');
-  const { user } = useUser();
-  const firestore = useFirestore();
-  const { toast } = useToast();
+interface SearchSongsProps {
+  playlist: Playlist;
+}
 
-  const songsQuery = useMemoFirebase(() => {
-    if (!user || !firestore || !submittedQuery) return null;
-    const songsCollectionRef = collection(firestore, `users/${user.uid}/songs`);
-    // This query is intentionally simple for demonstration.
-    // For a real-world application, you might want to use a more advanced
-    // search solution like Algolia or Elasticsearch, as Firestore's
-    // native querying capabilities for text search are limited.
-    // This query finds songs where the title starts with the submitted query.
-    return query(
-      songsCollectionRef,
-      where('title', '>=', submittedQuery),
-      where('title', '<=', submittedQuery + '\uf8ff')
-    );
-  }, [user, firestore, submittedQuery]);
-  
-  const { data: songs, isLoading, error } = useCollection<Song>(songsQuery);
+export function SearchSongs({ playlist }: SearchSongsProps) {
+  const [songs, setSongs] = useState<Song[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [submittedQuery, setSubmittedQuery] = useState('');
+  const { toast } = useToast();
+  const auth = useAuth();
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -52,21 +41,54 @@ export function SearchSongs() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!auth.currentUser) {
+       toast({
+        variant: "destructive",
+        title: "Error de autenticación",
+        description: "Debes iniciar sesión para buscar.",
+      });
+      return;
+    }
+
     setSubmittedQuery(values.songName);
+    setIsLoading(true);
+    setSongs([]);
+
+    try {
+       const idToken = await auth.currentUser.getIdToken(true);
+       const credential = GoogleAuthProvider.credential(idToken);
+       const tempUser = await auth.currentUser.reauthenticateWithCredential(credential);
+       const accessToken = (tempUser.credential as any)?.accessToken;
+
+       if(!accessToken) {
+         throw new Error("No se pudo obtener el token de acceso de Google.");
+       }
+
+      const allItems = await getPlaylistItems(accessToken, playlist.id);
+      const filteredSongs = allItems.filter(song => 
+        song.title.toLowerCase().includes(values.songName.toLowerCase()) || 
+        song.artist.toLowerCase().includes(values.songName.toLowerCase())
+      );
+      
+      setSongs(filteredSongs);
+
+    } catch (error: any) {
+       toast({
+        variant: "destructive",
+        title: "Error al buscar canciones",
+        description: error.message || "No se pudieron obtener las canciones de la playlist.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
     <div className="max-w-3xl mx-auto flex flex-col gap-8">
-      <div className="text-center space-y-2">
-        <h2 className="text-3xl md:text-4xl font-bold font-headline tracking-tight">Encuentra Cualquier Canción</h2>
-        <p className="text-muted-foreground text-lg">
-          Busca una canción por su nombre en todas tus playlists.
-        </p>
-      </div>
-
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>Buscar una Canción</CardTitle>
+          <CardTitle>Buscar en: {playlist.name}</CardTitle>
+          <CardDescription>Busca una canción por su nombre o artista en esta playlist.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -106,20 +128,9 @@ export function SearchSongs() {
         </div>
       )}
 
-      {error && (
-        <Card className="bg-destructive/10 border-destructive">
-          <CardHeader>
-            <CardTitle>Error</CardTitle>
-            <CardDescription className="text-destructive">
-              {error.message}
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      )}
-
-      {submittedQuery && !isLoading && songs && (
+      {submittedQuery && !isLoading && (
         <div className="space-y-4">
-          <h3 className="text-2xl font-bold font-headline">Resultados <span className="text-base font-normal text-muted-foreground">({songs.length} encontrados)</span></h3>
+          <h3 className="text-2xl font-bold font-headline">Resultados <span className="text-base font-normal text-muted-foreground">({songs.length} encontrados para "{submittedQuery}")</span></h3>
           {songs.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2">
               {songs.map((song, index) => (
@@ -130,7 +141,7 @@ export function SearchSongs() {
                 >
                   <CardHeader>
                     <CardTitle className="truncate">{song.title}</CardTitle>
-                    <CardDescription>{song.artist} &middot; {song.playlistName}</CardDescription>
+                    <CardDescription>{song.artist}</CardDescription>
                   </CardHeader>
                   <CardFooter>
                     <Button asChild variant="outline" className="w-full">
