@@ -20,7 +20,15 @@ export function initiateAnonymousSignIn(authInstance: Auth): void {
 export function initiateGoogleSignIn(authInstance: Auth): void {
   const provider = new GoogleAuthProvider();
   // CRITICAL: Call signInWithPopup directly. Do NOT use 'await signInWithPopup(...)'.
-  signInWithPopup(authInstance, provider);
+  // Adding a .catch() to handle cases where the user closes the popup,
+  // which can prevent unhandled promise rejections.
+  signInWithPopup(authInstance, provider).catch((error) => {
+    // This is primarily to catch user-cancelled popups.
+    // You can add more specific error handling if needed.
+    if (error.code !== 'auth/popup-closed-by-user') {
+      console.error("Error during Google sign-in:", error);
+    }
+  });
   // Code continues immediately. Auth state change is handled by onAuthStateChanged listener.
 }
 
