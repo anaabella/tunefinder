@@ -1,11 +1,9 @@
-
 'use client';
 
 import { useUser, useAuth } from '@/firebase';
 import { initiateGoogleSignIn } from '@/firebase/non-blocking-login';
 import { Button } from '@/components/ui/button';
 import { YouTubeIcon } from '@/components/icons';
-import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { SearchSongs } from '@/components/SearchSongs';
 
@@ -50,20 +48,7 @@ function Login() {
 
 export default function Home() {
   const { user, isUserLoading } = useUser();
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (user) {
-      const storedToken = sessionStorage.getItem('yt-access-token');
-      if (storedToken) {
-        setAccessToken(storedToken);
-      }
-    } else {
-      setAccessToken(null);
-      sessionStorage.removeItem('yt-access-token');
-    }
-  }, [user]);
-
+  const accessToken = typeof window !== 'undefined' ? sessionStorage.getItem('yt-access-token') : null;
 
   if (isUserLoading) {
     return (
@@ -79,13 +64,8 @@ export default function Home() {
     <div className="container mx-auto py-8 md:py-12 px-4 h-full">
       {!user ? (
         <Login />
-      ) : accessToken ? (
-         <SearchSongs accessToken={accessToken} />
       ) : (
-        <div className="flex flex-col items-center justify-center h-full gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          <p className="text-muted-foreground">Autenticando...</p>
-        </div>
+         <SearchSongs accessToken={accessToken} />
       )}
     </div>
   );
