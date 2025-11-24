@@ -1,0 +1,17 @@
+{
+  "name": "TuneFinder",
+  "short_name": "TuneFinder",
+  "description": "Busca canciones en tus playlists de YouTube.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAFAFA",
+  "theme_color": "#E6E6FA",
+  "icons": [
+    {
+      "src": "/icon-512x512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

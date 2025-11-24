@@ -1,0 +1,335 @@
+'use client';
+
+import { useState } from 'react';
+import Image from 'next/image';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { deletePlaylistItem } from '@/lib/youtube';
+import type { Song } from '@/lib/types';
+import { Trash2, Music4, Search, ArrowRightLeft } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { MoveSongDialog } from './MoveSongDialog';
+
+
+interface SongResultsProps {
+  songs: Song[];
+  setSongs: React.Dispatch<React.SetStateAction<Song[]>>;
+  accessToken: string | null;
+  isLoading?: boolean;
+  isSearching?: boolean;
+  searchQuery?: string;
+  initialSearch?: boolean;
+}
+
+const SongSkeleton = () => (
+  <div className="flex items-center gap-4 p-3 rounded-lg border bg-card text-card-foreground">
+    <Skeleton className="h-12 w-20 md:h-16 md:w-28 rounded-md flex-shrink-0" />
+    <div className="flex-grow min-w-0 space-y-2">
+      <Skeleton className="h-4 w-3/4" />
+      <Skeleton className="h-4 w-1/2" />
+      <Skeleton className="h-3 w-1/3" />
+    </div>
+    <div className="flex-shrink-0 flex flex-col md:flex-row gap-1">
+      <Skeleton className="h-8 w-8 rounded-full" />
+      <Skeleton className="h-8 w-8 rounded-full" />
+    </div>
+  </div>
+);
+
+export function SongResults({
+  songs,
+  setSongs,
+  accessToken,
+  isLoading,
+  isSearching,
+  searchQuery,
+  initialSearch,
+}: SongResultsProps) {
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { toast } = useToast();
+  const [songToMove, setSongToMove] = useState<Song | null>(null);
+  const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
+  
+  // Paging state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+
+  // Paging logic
+  const totalPages = Math.ceil(songs.length / itemsPerPage);
+  const paginatedSongs = songs.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+  
+  // Reset page when search query changes
+  useState(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+
+  const handleOpenMoveDialog = (song: Song) => {
+    setSongToMove(song);
+    setIsMoveDialogOpen(true);
+  };
+
+  const handleSongMoved = (originalPlaylistItemId: string) => {
+    setSongs((prev) =>
+      prev.filter((song) => song.id !== originalPlaylistItemId)
+    );
+  };
+
+  const handleDeleteSong = async (songIdToDelete: string) => {
+    setDeletingId(songIdToDelete);
+    if (!accessToken) {
+      toast({
+        variant: 'destructive',
+        title: 'Error de autenticación',
+        description: 'Se perdió la sesión. Por favor, inicia sesión de nuevo.',
+      });
+      setDeletingId(null);
+      return false;
+    }
+
+    try {
+      const success = await deletePlaylistItem(accessToken, songIdToDelete);
+
+      if (success) {
+        toast({
+          title: 'Canción eliminada',
+          description:
+            'La canción ha sido eliminada de tu playlist de YouTube.',
+        });
+
+        const songElement = document.getElementById(`song-${songIdToDelete}`);
+        if (songElement) {
+          songElement.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
+          songElement.style.opacity = '0';
+          songElement.style.transform = 'translateX(-100%)';
+          songElement.addEventListener(
+            'transitionend',
+            () => {
+              setSongs((prev) =>
+                prev.filter((song) => song.id !== songIdToDelete)
+              );
+            },
+            { once: true }
+          );
+        } else {
+          setSongs((prev) =>
+            prev.filter((song) => song.id !== songIdToDelete)
+          );
+        }
+
+        return true;
+      } else {
+        throw new Error(
+          'No se pudo eliminar la canción. Revisa los permisos o inténtalo de nuevo.'
+        );
+      }
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error al eliminar',
+        description: error.message || 'No se pudo eliminar la canción.',
+      });
+      return false;
+    } finally {
+      // Allow animation to complete before resetting the deleting state
+      setTimeout(() => setDeletingId(null), 500);
+    }
+  };
+
+  if (isLoading || (isSearching && songs.length === 0 && hasSearched)) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <SongSkeleton key={index} />
+        ))}
+      </div>
+    );
+  }
+
+  if (songs.length === 0 && !isSearching) {
+    if (searchQuery) {
+      return (
+        <div className="text-center py-10 border-2 border-dashed rounded-lg">
+          <p className="text-muted-foreground">
+            No se encontraron resultados para{' '}
+            <span className="font-semibold text-foreground">"{searchQuery}"</span>.
+          </p>
+        </div>
+      );
+    }
+    // Only show the initial message if `initialSearch` prop is true
+    if (initialSearch) {
+        return (
+          <div className="text-center py-10 border-2 border-dashed rounded-lg flex flex-col items-center gap-4">
+            <Search className="w-12 h-12 text-muted-foreground" />
+            <h3 className="text-xl font-semibold">Comienza tu búsqueda</h3>
+            <p className="text-muted-foreground max-w-md">Escribe en la barra de búsqueda de arriba para encontrar canciones en tus playlists.</p>
+          </div>
+        );
+    }
+
+    return (
+      <div className="text-center py-10 border-2 border-dashed rounded-lg flex flex-col items-center gap-4">
+        <Music4 className="w-12 h-12 text-muted-foreground" />
+        <h3 className="text-xl font-semibold">No se encontraron canciones</h3>
+        <p className="text-muted-foreground max-w-md">
+            No se encontraron canciones para los filtros actuales.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+    <div className="space-y-4">
+      {(isSearching && songs.length === 0) ? (
+        <div className="space-y-3">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <SongSkeleton key={index} />
+          ))}
+        </div>
+      ) : (
+        <>
+          <h3 className="text-xl md:text-2xl font-bold font-headline">
+            Resultados{' '}
+            <span className="text-base font-normal text-muted-foreground">
+              ({songs.length} encontrados)
+            </span>
+          </h3>
+          <div className="flex flex-col gap-3">
+            {paginatedSongs.map((song) => (
+              <div
+                key={song.id}
+                id={`song-${song.id}`}
+                className="flex items-center gap-3 md:gap-4 p-2 md:p-3 rounded-lg border bg-card text-card-foreground transition-opacity"
+              >
+                {song.thumbnailUrl && (
+                  <div className="aspect-video relative h-12 w-20 md:h-16 md:w-28 rounded-md overflow-hidden flex-shrink-0">
+                    <Image
+                      src={song.thumbnailUrl}
+                      alt={`Miniatura de ${song.title}`}
+                      fill
+                      style={{ objectFit: 'cover' }}
+                      sizes="(max-width: 768px) 80px, 112px"
+                    />
+                  </div>
+                )}
+                <div className="flex-grow min-w-0">
+                  <p className="truncate font-semibold text-sm md:text-base">{song.title}</p>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {song.artist}
+                  </p>
+                  <p className="text-xs text-muted-foreground hidden sm:block">
+                    En: <span className="font-medium">{song.playlistName}</span>
+                  </p>
+                </div>
+                <div className="flex-shrink-0 flex items-center gap-0.5">
+                  <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Mover canción"
+                      onClick={() => handleOpenMoveDialog(song)}
+                      className="h-9 w-9 md:h-10 md:w-10"
+                  >
+                      <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled={deletingId === song.id}
+                        aria-label="Eliminar canción"
+                        className="h-9 w-9 md:h-10 md:w-10"
+                      >
+                        {deletingId === song.id ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-destructive"></div>
+                        ) : (
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        )}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta acción no se puede deshacer. Esto eliminará
+                          permanentemente la canción{' '}
+                          <span className="font-semibold">"{song.title}"</span> de
+                          tu playlist{' '}
+                          <span className="font-semibold">
+                            "{song.playlistName}"
+                          </span>{' '}
+                          en YouTube.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            handleDeleteSong(song.id);
+                          }}
+                        >
+                          Sí, eliminar
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+    {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-2 md:gap-4 mt-6">
+            <Button
+            onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+            disabled={currentPage === 1}
+            variant="outline"
+            size="sm"
+            >
+            Anterior
+            </Button>
+            <span className="text-sm text-muted-foreground">
+            Página {currentPage} de {totalPages}
+            </span>
+            <Button
+            onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+            disabled={currentPage === totalPages}
+            variant="outline"
+            size="sm"
+            >
+            Siguiente
+            </Button>
+        </div>
+    )}
+
+    {songToMove && accessToken && (
+        <MoveSongDialog
+        open={isMoveDialogOpen}
+        onOpenChange={setIsMoveDialogOpen}
+        song={songToMove}
+        accessToken={accessToken}
+        onSongMoved={handleSongMoved}
+        />
+    )}
+    </>
+  );
+}

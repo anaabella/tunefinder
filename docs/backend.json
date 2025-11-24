@@ -1,0 +1,101 @@
+
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "type": "object",
+      "description": "Stores user-specific application settings and profile information.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The user's unique ID, matching their Firebase Auth UID."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "The user's public display name."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The user's email address."
+        }
+      },
+      "required": ["id", "displayName", "email"]
+    },
+    "Song": {
+      "title": "Song",
+      "type": "object",
+      "description": "Represents a single song within a user's collection, denormalized for efficient global searching.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the song document."
+        },
+        "playlistId": {
+          "type": "string",
+          "description": "The ID of the playlist this song belongs to."
+        },
+        "playlistName": {
+          "type": "string",
+          "description": "The name of the playlist this song belongs to."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the song."
+        },
+        "artist": {
+          "type": "string",
+          "description": "The artist of the song."
+        },
+        "youtubeVideoId": {
+          "type": "string",
+          "description": "The YouTube video ID for the song."
+        }
+      },
+      "required": ["id", "playlistId", "playlistName", "title", "artist", "youtubeVideoId"]
+    }
+  },
+  "auth": {
+    "providers": [
+      "google.com"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores public profile information for each user.",
+          "params": [{
+            "name": "userId",
+            "description": "The unique ID of the user."
+          }]
+        }
+      },
+      {
+        "path": "/users/{userId}/songs/{songId}",
+        "definition": {
+          "entityName": "Song",
+          "schema": {
+            "$ref": "#/backend/entities/Song"
+          },
+          "description": "A collection of all songs for a user, denormalized for efficient searching across all their playlists. This structure supports a global song search without needing complex, inefficient queries across multiple playlist subcollections.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user who owns the song."
+            },
+            {
+              "name": "songId",
+              "description": "The unique ID for the song document."
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
