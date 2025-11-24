@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import Image from 'next/image';
 
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Song } from "@/lib/types";
 import { Search, Music, Trash2 } from "lucide-react";
@@ -161,7 +162,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
                             <Image 
                                 src={song.thumbnailUrl} 
                                 alt={`Miniatura de ${song.title}`} 
-                                layout="fill" 
+                                fill
                                 objectFit="cover"
                             />
                         </div>
@@ -194,10 +195,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
                           <AlertDialogAction 
                             onClick={async (e) => {
                                 e.preventDefault();
-                                const success = await handleDeleteSong(song.id);
-                                // The AlertDialog will close automatically if the action is successful,
-                                // because the component that triggered it will be removed from the list.
-                                // If not successful, we leave it open.
+                                await handleDeleteSong(song.id);
                             }}
                           >
                             Sí, eliminar
