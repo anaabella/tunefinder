@@ -16,7 +16,7 @@ import { YouTubeIcon } from "@/components/icons";
 import { Search, Music } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { searchAllPlaylists } from "@/lib/youtube";
-import { useAuth } from "@/firebase";
+import { useUser } from "@/firebase";
 
 const formSchema = z.object({
   query: z.string().min(2, { message: "Por favor, introduce al menos 2 caracteres." }),
@@ -31,7 +31,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [submittedQuery, setSubmittedQuery] = useState('');
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user } = useUser();
 
 
   const form = useForm<z.infer<typeof formSchema>>({
