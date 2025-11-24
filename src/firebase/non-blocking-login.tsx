@@ -24,8 +24,8 @@ export function initiateGoogleSignIn(authInstance: Auth): Promise<UserCredential
     const credential = GoogleAuthProvider.credentialFromResult(result);
     const accessToken = credential?.accessToken;
     if (accessToken) {
-      // Using sessionStorage to persist the token across page reloads but not across tabs/windows.
-      sessionStorage.setItem('yt-access-token', accessToken);
+      // Using localStorage to persist the token across sessions.
+      localStorage.setItem('yt-access-token', accessToken);
     }
     return result;
   }).catch(error => {

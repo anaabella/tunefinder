@@ -48,7 +48,7 @@ function Login() {
 
 export default function Home() {
   const { user, isUserLoading } = useUser();
-  const accessToken = typeof window !== 'undefined' ? sessionStorage.getItem('yt-access-token') : null;
+  const accessToken = typeof window !== 'undefined' ? localStorage.getItem('yt-access-token') : null;
 
   if (isUserLoading) {
     return (
