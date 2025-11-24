@@ -68,6 +68,7 @@ const getPlaylistItemsFlow = ai.defineFlow(
         artist: z.string(),
         youtubeVideoId: z.string(),
         thumbnailUrl: z.string(),
+        publishedAt: z.string(),
       })
     ),
   },
@@ -110,6 +111,7 @@ const getPlaylistItemsFlow = ai.defineFlow(
         artist: videoOwner,
         youtubeVideoId: item.snippet?.resourceId?.videoId || '',
         thumbnailUrl: item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url || '',
+        publishedAt: item.snippet?.publishedAt || new Date(0).toISOString(),
       };
     });
 
@@ -145,12 +147,8 @@ const getAllSongsFromAllPlaylistsFlow = ai.defineFlow(
     const allSongsArrays = await Promise.all(allSongsPromises);
     const allSongs = allSongsArrays.flat();
     
-    // Sort results by playlist name, then by title
-    allSongs.sort((a, b) => {
-      if (a.playlistName < b.playlistName) return -1;
-      if (a.playlistName > b.playlistName) return 1;
-      return a.title.localeCompare(b.title);
-    });
+    // Default sort by published date descending (newest first)
+    allSongs.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 
     return allSongs;
   }

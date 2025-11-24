@@ -7,6 +7,7 @@ export type Song = {
   artist: string;
   youtubeVideoId: string;
   thumbnailUrl: string;
+  publishedAt: string;
 };
 
 export type Playlist = {

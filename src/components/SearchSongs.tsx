@@ -49,7 +49,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
       try {
         const results = await getAllSongsFromAllPlaylists(accessToken);
         setAllSongs(results);
-        setFilteredSongs(results); // Initially, show all songs
+        setFilteredSongs(results); // Initially, show all songs sorted by date
       } catch (error: any) {
         toast({
           variant: "destructive",
@@ -69,8 +69,11 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
     const lowerCaseQuery = query.toLowerCase();
     
     if (lowerCaseQuery === '') {
-      setFilteredSongs(allSongs);
+      // If query is empty, show all songs sorted by published date (newest first)
+      const sortedByDate = [...allSongs].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+      setFilteredSongs(sortedByDate);
     } else {
+      // If there is a query, filter by it
       const results = allSongs.filter(song =>
         song.title.toLowerCase().includes(lowerCaseQuery) ||
         (song.artist && song.artist.toLowerCase().includes(lowerCaseQuery))
