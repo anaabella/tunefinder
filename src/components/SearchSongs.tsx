@@ -24,7 +24,7 @@ const formSchema = z.object({
 
 interface SearchSongsProps {
   playlist: Playlist;
-  accessToken: string | null;
+  accessToken: string;
 }
 
 export function SearchSongs({ playlist, accessToken }: SearchSongsProps) {
@@ -32,7 +32,7 @@ export function SearchSongs({ playlist, accessToken }: SearchSongsProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [submittedQuery, setSubmittedQuery] = useState('');
   const { toast } = useToast();
-  const auth = useAuth();
+  const { user } = useAuth();
 
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -41,7 +41,7 @@ export function SearchSongs({ playlist, accessToken }: SearchSongsProps) {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!auth.currentUser) {
+    if (!user) {
        toast({
         variant: "destructive",
         title: "Error de autenticación",
@@ -67,7 +67,7 @@ export function SearchSongs({ playlist, accessToken }: SearchSongsProps) {
       const allItems = await getPlaylistItems(accessToken, playlist.id);
       const filteredSongs = allItems.filter(song => 
         song.title.toLowerCase().includes(values.songName.toLowerCase()) || 
-        song.artist.toLowerCase().includes(values.songName.toLowerCase())
+        (song.artist && song.artist.toLowerCase().includes(values.songName.toLowerCase()))
       );
       
       setSongs(filteredSongs);
