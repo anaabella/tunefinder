@@ -38,7 +38,6 @@ function RefreshSession() {
 export function SearchSongs({ accessToken }: SearchSongsProps) {
   const [filteredSongs, setFilteredSongs] = useState<Song[]>([]);
   const [query, setQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [isTokenExpired, setIsTokenExpired] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const { toast } = useToast();
@@ -47,11 +46,11 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
 
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!user || !accessToken) {
-      setIsLoading(false);
       return;
     }
 
-    setHasSearched(true);
+    if (!hasSearched) setHasSearched(true);
+    
     startSearchTransition(async () => {
       try {
         const ignoredPlaylistsStr = localStorage.getItem('ignored-playlists') || '[]';
@@ -74,7 +73,7 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
         }
       }
     });
-  }, [user, accessToken, toast]);
+  }, [user, accessToken, toast, hasSearched]);
   
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -85,6 +84,12 @@ export function SearchSongs({ accessToken }: SearchSongsProps) {
       clearTimeout(handler);
     };
   }, [query, handleSearch]);
+  
+  // Fetch initial songs when the component mounts with an empty query
+  useEffect(() => {
+    handleSearch('');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (isTokenExpired) return <RefreshSession />;
 

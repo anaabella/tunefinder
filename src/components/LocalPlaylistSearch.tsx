@@ -64,16 +64,20 @@ export function LocalPlaylistSearch() {
   }, [user, accessToken, toast]);
 
   useEffect(() => {
-    const lowerCaseQuery = searchQuery.toLowerCase();
-    if (!searchQuery) {
-        setFilteredMatchedSongs(matchedSongs);
-    } else {
-        const filtered = matchedSongs.filter(song =>
-            song.title.toLowerCase().includes(lowerCaseQuery) ||
-            (song.artist && song.artist.toLowerCase().includes(lowerCaseQuery))
-        );
-        setFilteredMatchedSongs(filtered);
-    }
+    const handler = setTimeout(() => {
+        const lowerCaseQuery = searchQuery.toLowerCase();
+        if (!searchQuery) {
+            setFilteredMatchedSongs(matchedSongs);
+        } else {
+            const filtered = matchedSongs.filter(song =>
+                song.title.toLowerCase().includes(lowerCaseQuery) ||
+                (song.artist && song.artist.toLowerCase().includes(lowerCaseQuery))
+            );
+            setFilteredMatchedSongs(filtered);
+        }
+    }, 300); // 300ms debounce
+    
+    return () => clearTimeout(handler);
   }, [searchQuery, matchedSongs]);
 
 
