@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useUser, useAuth } from '@/firebase';
 import { initiateGoogleSignIn } from '@/firebase/non-blocking-login';
 import { Button } from '@/components/ui/button';
@@ -13,9 +12,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogIn, LogOut, User as UserIcon } from 'lucide-react';
+import { LogIn, User as UserIcon } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
-import { signOut } from 'firebase/auth';
 
 function getUserInitials(name: string | null | undefined) {
   if (!name) return '';
@@ -69,11 +67,6 @@ export function UserAuth() {
             </p>
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => signOut(auth)}>
-          <LogOut className="mr-2" />
-          <span>Cerrar Sesión</span>
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
